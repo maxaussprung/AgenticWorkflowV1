@@ -1,0 +1,78 @@
+# Tool-agnostic guardrail: reject any pull request that modifies the frozen, read-only
+# to_be_migrated_repo/ legacy source. This covers every contributor — humans and all AI assistants
+# (Claude Code, Codex, OpenCode) — at the authoritative CI layer.
+#
+# The freeze applies to the legacy source, not to the governance docs that explain it:
+# to_be_migrated_repo/README.md, to_be_migrated_repo/AGENTS.md, and to_be_migrated_repo/CLAUDE.md remain editable so
+# they can be kept current.
+#
+# Wire this as a required build-validation policy on master in Azure DevOps branch policies.
+
+pr:
+  branches:
+    include:
+      - master
+
+trigger: none   # PR-validation only; no CI build on branch pushes
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+    displayName: Checkout (full history for diff)
+
+  - script: |
+      set -euo pipefail
+      python3 - <<'PY'
+      import os
+      import sys
+
+      expected = "../.agents/skills"
+      failed = False
+      for path in (".claude/skills", ".codex/skills", ".opencode/skills"):
+          if not os.path.islink(path):
+              print(
+                  f"##vso[task.logissue type=error]{path} must be a Git symlink "
+                  f"to {expected}. Check Windows symlink support and core.symlinks."
+              )
+              failed = True
+              continue
+          target = os.readlink(path)
+          if target != expected:
+              print(
+                  f"##vso[task.logissue type=error]{path} must point to {expected}, "
+                  f"but points to {target}."
+              )
+              failed = True
+          if not os.path.isdir(path):
+              print(
+                  f"##vso[task.logissue type=error]{path} points to {target} "
+                  "but does not resolve to a directory."
+              )
+              failed = True
+
+      if failed:
+          sys.exit(1)
+      print("OK: agent skills entries are real symlinks to ../.agents/skills.")
+      PY
+    displayName: Verify agent skills symlinks
+
+  - script: |
+      set -euo pipefail
+      TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-refs/heads/master}"
+      BRANCH="${TARGET#refs/heads/}"
+      git fetch --no-tags origin "$BRANCH"
+      CHANGED="$(git diff --name-only "origin/$BRANCH...HEAD")"
+      echo "Changed files vs origin/$BRANCH:"
+      echo "$CHANGED"
+      # Block any change under to_be_migrated_repo/ EXCEPT its governance docs (README/AGENTS/CLAUDE.md).
+      BLOCKED="$(echo "$CHANGED" | grep -E '^to_be_migrated_repo/' | grep -vE '^to_be_migrated_repo/(README|AGENTS|CLAUDE)\.md$' || true)"
+      if [ -n "$BLOCKED" ]; then
+        echo "##vso[task.logissue type=error]to_be_migrated_repo/ legacy source is frozen and read-only. Only its governance docs (README/AGENTS/CLAUDE.md) may change. Revert these files:"
+        echo "$BLOCKED"
+        exit 1
+      fi
+      echo "OK: no changes to frozen to_be_migrated_repo/ source."
+    displayName: Block edits to frozen to_be_migrated_repo/

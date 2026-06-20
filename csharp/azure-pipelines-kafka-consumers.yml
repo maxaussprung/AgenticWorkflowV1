@@ -1,0 +1,169 @@
+# ===== CONFIGURE FOR YOUR PROJECT =====
+# Before using this pipeline, update the variable files in azure/variables/
+# and configure the following:
+# - BUILD-AGENT-POOL: your Azure DevOps agent pool name
+# - Service connections in your Azure DevOps project
+# - Variable groups (referenced as {PROJECT-NAME}.Build, {PROJECT-NAME}.Dev, etc.)
+# ======================================
+
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
+trigger:
+  branches:
+    include:
+      - develop
+      - main
+      - feature/*
+      - test/*
+
+  paths:
+    include:
+      - /src/backend/{ClientName}.{ProjectName}.ConsumersWorker/*
+      - /src/backend/{ClientName}.{ProjectName}.Infrastructure/*
+      - /test/backend/{ClientName}.{ProjectName}.ConsumersWorker.UnitTests/*
+      - /test/backend/{ClientName}.{ProjectName}.ConsumersWorker.IntegrationTests/*
+      - /test/backend/{ClientName}.{ProjectName}.TestUtilities/*
+      - /azure-pipelines-kafka-consumers.yml
+
+pool:
+  name: {BUILD-AGENT-POOL}
+
+variables:
+  - template: ./azure/variables/common-variables.yml
+  - name: coverageReportOutputDirectory
+    value: $(Agent.TempDirectory)/test-coverage
+
+stages:
+  - stage: build
+    displayName: Build
+    jobs:
+      - job:
+        displayName: Build Kafka Consumers
+        condition: succeeded()
+        steps:
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-dotnet-v2
+          - task: UseDotNet@2
+            condition: succeeded()
+            displayName: Install .NET 9 SDK
+            inputs:
+              includePreviewVersions: false
+              packageType: sdk
+              performMultiLevelLookup: true
+              version: 9.x
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-command-v2
+          - task: NuGetCommand@2
+            condition: succeeded()
+            displayName: Add Auth to nuget.config
+            inputs:
+              command: custom
+              arguments: sources Update -Name "{NUGET-FEED-NAME}" -Source "https://pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/nuget/v3/index.json" -username "not_used" -password $(System.AccessToken) -ConfigFile $(Build.SourcesDirectory)/nuget.config -StorePasswordInClearText
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+          - task: DotNetCoreCLI@2
+            condition: succeeded()
+            displayName: Build Kafka Consumers | $(BuildConfiguration)
+            inputs:
+              arguments: --configuration $(BuildConfiguration)
+              command: build
+              includesource: false
+              includesymbols: true
+              workingDirectory: src/backend/{ClientName}.{ProjectName}.ConsumersWorker
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+          - task: DotNetCoreCLI@2
+            condition: succeeded()
+            displayName: Run Unit Tests
+            inputs:
+              arguments: --collect "Code Coverage" --settings $(Build.SourcesDirectory)/codeCoverage.runsettings
+              command: test
+              projects: $(Build.SourcesDirectory)/test/backend/{ClientName}.{ProjectName}.ConsumersWorker.UnitTests/{ClientName}.{ProjectName}.ConsumersWorker.UnitTests.csproj
+              publishTestResults: true
+              testRunTitle: Consumers Worker Unit Tests
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+          - task: DotNetCoreCLI@2
+            condition: succeeded()
+            displayName: Run Integration Tests
+            inputs:
+              arguments: --collect "Code Coverage" --settings $(Build.SourcesDirectory)/codeCoverage.runsettings
+              command: test
+              projects: $(Build.SourcesDirectory)/test/backend/{ClientName}.{ProjectName}.ConsumersWorker.IntegrationTests/{ClientName}.{ProjectName}.ConsumersWorker.IntegrationTests.csproj
+              publishTestResults: true
+              testRunTitle: Consumers Worker Integration Tests
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/cmd-line-v2
+          - task: CmdLine@2
+            condition: succeeded()
+            displayName: Convert .coverage Files
+            inputs:
+              failOnStderr: True
+              script: |
+                dotnet tool install --global dotnet-coverage
+                export PATH="$PATH:~/.dotnet/tools"
+                mkdir $(coverageReportOutputDirectory)
+                dotnet-coverage merge -o "$(coverageReportOutputDirectory)/coverage.xml" -f xml $(Agent.TempDirectory)/**/*.coverage
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-code-coverage-results-v2
+          - task: PublishCodeCoverageResults@2
+            condition: succeeded()
+            displayName: Publish Unit Tests Code Coverage
+            inputs:
+              failIfCoverageEmpty: true
+              summaryFileLocation: $(coverageReportOutputDirectory)/coverage.xml
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2
+          - task: AzureCLI@2
+            name: acrLogin
+            condition: succeeded()
+            displayName: Login to ACR
+            inputs:
+              azureSubscription: ${{ variables.AcrServiceConnection }}
+              scriptType: pscore
+              scriptLocation: inlineScript
+              inlineScript: |
+                az acr login -n ${{ variables.AcrName }}
+                $loginServer = "${{ variables.AcrName }}.azurecr.io"
+                echo "##[debug] Login server: '$loginServer'"
+                Write-Host "##vso[task.setvariable variable=containerRegistryLoginServer;issecret=true]$loginServer"
+
+          - template: azure/pipeline/job-build-push-docker-image.yml
+            parameters:
+              acrServiceConnection: ${{ variables.AcrServiceConnection }}
+              dockerFilePath: $(Build.Repository.LocalPath)/src/backend/{ClientName}.{ProjectName}.ConsumersWorker/Dockerfile
+              dockerContextPath: $(Build.Repository.LocalPath)
+              dockerImageName: ${{ variables.KubernetesTenant }}/{project-name}-kafka-consumers
+              dockerImageTag: $(Build.SourceVersion)
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2
+          - task: CopyFiles@2
+            displayName: Copy Bicep Files
+            condition: succeeded()
+            inputs:
+              SourceFolder: $(Build.SourcesDirectory)/azure/infrastructure
+              TargetFolder: $(Build.ArtifactStagingDirectory)/bicep-files
+
+          # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-build-artifacts-v1
+          - task: PublishBuildArtifacts@1
+            displayName: Publish Bicep Artifacts
+            condition: succeeded()
+            inputs:
+              PathtoPublish: $(Build.ArtifactStagingDirectory)/bicep-files
+              artifactName: bicep-files
+
+          - template: azure/pipeline/job-package-helm.yml
+            parameters:
+              acrName: ${{ variables.AcrName }}
+              registryRepositoryPath: ${{ variables.KubernetesTenant }}/helm
+              helmChartName: {project-name}-kafka-consumers
+              helmChartPath: $(Build.SourcesDirectory)/azure/helm/kafka-consumers
+              helmChartVersion: $(Build.BuildNumber)
+
+  - template: azure/pipeline/stage-deploy-kafka-consumers.yml
+    parameters:
+      acrName: ${{ variables.AcrName }}
+      acrServiceConnection: ${{ variables.AcrServiceConnection }}
+      deploymentServiceConnection: {service-connection}-dev
+      environment: {PROJECT-NAME}-Dev
+      stageName: dev
+      subscriptionId: {SUBSCRIPTION-ID-DEV}
+      variableGroup: {PROJECT-NAME}.Dev

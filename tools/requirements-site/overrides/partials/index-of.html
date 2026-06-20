@@ -1,0 +1,73 @@
+{#- Render a sorted (ID, Title, …) table of every page whose `type` matches
+    `page.meta.index_of`. Data comes from the `xref` registry built once per
+    build by hooks/cross_refs.py, so titles always reflect the latest page
+    front matter — no re-import needed when titles change.
+
+    Extra columns are declared per index page via `index_columns:` in front
+    matter (e.g. Epics use `index_columns: [Priority]`). Each name must be a
+    key present in target pages' front matter; the partial pulls the value
+    from `entry.meta`. The "Priority" column gets a coloured tag; everything
+    else is plain text.
+
+    Optional totals: `index_totals:` lists numeric front-matter fields to sum
+    across the indexed entries. One "Total <col>: N" line is rendered below
+    the table (e.g. Features use `index_totals: [Sprints]`). Non-numeric and
+    missing values contribute 0. -#}
+{% set index_type = page.meta.index_of %}
+{% set extra_cols = page.meta.index_columns | default([]) %}
+{% set total_cols = page.meta.index_totals | default([]) %}
+{% set entries = (xref | default({})).get(index_type, {}) %}
+{# Drop the ID column when every entry's id equals its title — that's the
+   case for Applications where the source has only one identifier (Display
+   Name) doing double duty as id and title; rendering both produces an
+   "ANKE | ANKE" column pair. Auto-detected so future types with the same
+   shape get the same treatment without config. #}
+{% set ns = namespace(all_match=true) %}
+{% for id, entry in entries.items() %}
+  {% if id != entry.title %}{% set ns.all_match = false %}{% endif %}
+{% endfor %}
+{% set show_id_col = entries and not ns.all_match %}
+{% if entries %}
+  <div class="md-typeset rm-index">
+    <table>
+      <thead>
+        <tr>
+          {% if show_id_col %}<th>ID</th>{% endif %}
+          <th>Title</th>
+          {% for col in extra_cols %}<th>{{ "Source Tier" if col == "source_tier" else col }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for id, entry in entries.items() %}
+          <tr>
+            {% if show_id_col %}<td><code>{{ id }}</code></td>{% endif %}
+            <td><a href="{{ base_url }}/{{ entry.url }}">{{ entry.title }}</a></td>
+            {% for col in extra_cols %}
+              {% set value = entry.meta.get(col, "") %}
+              <td>
+                {% if col == "Priority" and value %}
+                  <span class="tag tag--priority-{{ value }}">Priority {{ value }}</span>
+                {% elif col == "source_tier" and value %}
+                  <span class="tag tag--source-tier-{{ value }}">{{ value | upper }}</span>
+                {% else %}
+                  {{ value }}
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if total_cols %}
+    <div class="md-typeset rm-index-totals">
+      {% for col in total_cols %}
+        {% set ns = namespace(total=0) %}
+        {% for id, entry in entries.items() %}
+          {% set ns.total = ns.total + (entry.meta.get(col) | int(0)) %}
+        {% endfor %}
+        <p><strong>Total {{ col }}:</strong> {{ ns.total }} (across {{ entries | length }} {{ index_type }}{% if entries | length != 1 %}s{% endif %})</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endif %}

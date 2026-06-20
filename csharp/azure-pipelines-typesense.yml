@@ -1,0 +1,54 @@
+# ===== CONFIGURE FOR YOUR PROJECT =====
+# Before using this pipeline, update the variable files in azure/variables/
+# and configure the following:
+# - BUILD-AGENT-POOL: your Azure DevOps agent pool name
+# - Service connections in your Azure DevOps project
+# - Variable groups (referenced as {PROJECT-NAME}.Build, {PROJECT-NAME}.Dev, etc.)
+# ======================================
+
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
+trigger: none
+
+pool:
+  name: {BUILD-AGENT-POOL}
+
+variables:
+  - template: ./azure/variables/common-variables.yml
+
+stages:
+  - stage: prepare_typesense
+    displayName: Prepare Typesense
+    jobs:
+    - job:
+      displayName: Upload Typesense Helm Chart to ACR
+      steps:
+      # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2
+      - task: AzureCLI@2
+        name: acrLogin
+        displayName: Login to ACR
+        inputs:
+          azureSubscription: ${{ variables.AcrServiceConnection }}
+          scriptType: pscore
+          scriptLocation: inlineScript
+          inlineScript: |
+            az acr login -n ${{ variables.AcrName }}
+            $loginServer = "${{ variables.AcrName }}.azurecr.io"
+            echo "##[debug] Login server: '$loginServer'"
+            Write-Host "##vso[task.setvariable variable=containerRegistryLoginServer;issecret=true]$loginServer"
+
+      - template: ./azure/pipeline/job-package-helm.yml
+        parameters:
+          acrName: ${{ variables.AcrName }}
+          registryRepositoryPath: $(KubernetesTenant)/helm
+          helmChartName: {project-name}-typesense
+          helmChartPath: $(Build.SourcesDirectory)/azure/helm/typesense
+          helmChartVersion: $(Build.BuildNumber)
+
+  - template: ./azure/pipeline/stage-deploy-typesense.yml
+    parameters:
+      acrName: ${{ variables.AcrName }}
+      acrServiceConnection: ${{ variables.AcrServiceConnection }}
+      deploymentServiceConnection: {service-connection}-dev
+      environment: {PROJECT-NAME}-Dev
+      stageName: dev
+      variableGroup: {PROJECT-NAME}.Dev

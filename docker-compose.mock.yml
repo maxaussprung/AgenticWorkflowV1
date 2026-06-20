@@ -1,0 +1,36 @@
+# LOCAL-ONLY full-stack Mock override. Brings up the same local stack as the normal start
+# (csharp/docker-compose.yml + csharp/tools/local-dev/start-docker.sh) but forces the backend into
+# the offline Mock environment (ASPNETCORE_ENVIRONMENT=Mock) so a developer can run everything
+# locally in Mock mode with one command:
+#
+#   bash csharp/tools/local-dev/start-mock-docker.sh
+#
+# start-mock-docker.sh sets {PROJECT}_MOCK=1 and reuses start-docker.sh (HTTPS cert, NuGet build secrets,
+# image build, health waits), which layers this file via `-f`. A bare `docker compose up` with this
+# file would skip all of that setup, so always start Mock through the wrapper.
+#
+# What Mock changes (vs the base csharp/docker-compose.yml, which hardcodes SystemIntegration):
+#   * api boots fully offline — the IsMock() DI guards skip Azure App Configuration, Redis, Kafka
+#     and the Azure Storage blob lock manager. Real service registrations are unchanged; this is
+#     infrastructure only, with no slice-specific mocks.
+#   * Cloud-only dependencies are dropped from the api service at boot because Mock does not reach
+#     those dependencies on startup. The SQL Server (mssql) database is kept: under Mock the API
+#     still applies EF Core migrations and seeds local mock data (GenerateMockData) against it.
+#
+# This file is purely additive — it merges into the same Compose project (name: {project-name}) as
+# the base and changes nothing for any non-Mock invocation of csharp/docker-compose.yml.
+# Replace {project-name} with your project's identifier.
+name: {project-name}
+services:
+  api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Mock
+      - ASPNETCORE_URLS=http://*:8080;https://*:8081
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=${PROJECT_API_CERTIFICATE_PASSWORD}
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+      - ConnectionStrings__AppDb=${PROJECT_DB_CONNECTION_STRING:-Server=mssql,1433;Database=AppDb;User Id=sa;Password=Strong_password_123!;TrustServerCertificate=True;MultipleActiveResultSets=true;}
+      - Swagger__ServerUrls__0=https://localhost:5001
+    depends_on:
+      - mssql

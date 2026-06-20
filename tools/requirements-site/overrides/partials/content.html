@@ -1,0 +1,16 @@
+{#-
+  Local override of mkdocs-material's content.html.
+
+  Typed pages (page.meta.type set) provide their own <h1> via the type-specific
+  header partial included from main.html. Suppress the auto-H1 in that case to
+  avoid the title rendering twice. All other behavior matches the upstream file.
+-#}
+{% include "partials/tags.html" %}
+{% include "partials/actions.html" %}
+{% if not page.meta.type and "<h1" not in page.content %}
+  <h1>{{ page.title | d(config.site_name, true)}}</h1>
+{% endif %}
+{{ page.content }}
+{% include "partials/source-file.html" %}
+{% include "partials/feedback.html" %}
+{% include "partials/comments.html" %}

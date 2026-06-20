@@ -1,0 +1,44 @@
+# This Helm chart is provided as a conceptual demo and may not work out of the box.
+# It is a starting point for your own configurations,
+# and you may need to modify it to suit your specific requirements.
+# Please review and modify the configurations accordingly before deploying.
+
+# Details about the image to be deployed.
+container:
+  # Image to pull
+  image: {CONTAINER-REGISTRY}.azurecr.io/{kubernetes-tenant}/{project-name}-api
+  imageVersion:
+  # Used to identify the container in the pod.
+  name: {project-name}-api
+  port: 8080
+
+service:
+  port: 8080
+
+ingress:
+  className: {kubernetes-tenant}-ingress
+  # Name of the domain that will be automatically generated as "[subdomain].[environment].{cluster-domain}".
+  subdomain: {project-name}-api
+  # Duration for automated chart renewals. Should generally not be changed.
+  certificate:
+    duration: 240h
+    renewBefore: 72h
+    revisionHistoryLimit: "3"
+
+# Details of the main cluster ingress controller that the chart ingress will point to.
+# Should not be changed as it will break linkerd rules due to the ingress controller
+# being a fixed resource in each cluster.
+ingressController:
+  namespace: {kubernetes-tenant}-ingress
+  serviceAccount: ingress-{kubernetes-tenant}-ingress-nginx
+
+managedIdentity:
+  # Client ID of the managed identity used to authenticate to azure resources.
+  # For demo purposes this is a static value, in a real world scenario the recommendation is to
+  # deploy the identity with an azure resource deployment and pass the client id as a parameter to helm.
+  clientId: ''
+
+# The app settings below will be injected into the deployment as configmap, similar to how app settings work in azure app services.
+appSettings:
+  AppConfiguration:
+    Endpoint: ''

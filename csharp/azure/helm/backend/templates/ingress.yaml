@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "release.fullname" . }}-ing
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: "vault-trusted-issuer"
+    cert-manager.io/common-name: "{{ .Values.ingress.subdomain }}.{{ .Values.environment }}.{cluster-domain}"
+    cert-manager.io/duration: {{ .Values.ingress.certificate.duration }}
+    cert-manager.io/renew-before: {{ .Values.ingress.certificate.renewBefore }}
+    cert-manager.io/revision-history-limit: "{{ .Values.ingress.certificate.revisionHistoryLimit }}"
+spec:
+  tls:
+  - hosts:
+    - {{ .Values.ingress.subdomain }}.{{ .Values.environment }}.{cluster-domain}
+    secretName: {{ include "release.fullname" . }}-tls
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+  - host: {{ .Values.ingress.subdomain }}.{{ .Values.environment }}.{cluster-domain}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "release.fullname" . }}-svc
+            port:
+              number: {{ .Values.container.port }}

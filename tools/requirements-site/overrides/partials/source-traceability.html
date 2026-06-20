@@ -1,0 +1,14 @@
+{#- Global source-traceability overview: walk every product (in natural ID order
+    from the xref registry) and render its feature-composition table via the
+    shared product-feature-map partial. -#}
+{% set products = (xref | default({})).get("product", {}) %}
+<div class="md-typeset">
+  {% for pid, entry in products.items() %}
+    <h2 id="{{ pid | lower }}">
+      <a href="{{ base_url }}/{{ entry.url }}"><code>{{ pid }}</code></a>{% if entry.title and entry.title != pid %} — {{ entry.title }}{% endif %}
+    </h2>
+    {% with target_id=pid, heading="" %}
+      {% include "partials/product-feature-map.html" %}
+    {% endwith %}
+  {% endfor %}
+</div>

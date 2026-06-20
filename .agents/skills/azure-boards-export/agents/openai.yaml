@@ -1,0 +1,6 @@
+interface:
+  display_name: "Azure Boards Export"
+  short_description: "Export Azure Boards tickets to Markdown"
+  default_prompt: "Use $azure-boards-export to export this Azure DevOps board to Markdown files with attachments."
+policy:
+  allow_implicit_invocation: true

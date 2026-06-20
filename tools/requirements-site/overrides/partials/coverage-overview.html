@@ -1,0 +1,90 @@
+{# Central test-coverage overview. Renders an overall rollup plus one detailed,
+   anchored section per requirement, from the `test_coverage` global. Requirement
+   pages link here via #cov-<reqid>. Pure presentation. #}
+<div class="md-typeset">
+{% if not test_coverage %}
+  <p><em>No test coverage data yet. The test-author agents emit it under
+  <code>reports/test-coverage/&lt;layer&gt;/&lt;REQ-ID&gt;.json</code>.</em></p>
+{% else %}
+
+  {% set ns = namespace(reqs=0, ac_total=0, ac_ok=0) %}
+  {% for rid, layers in test_coverage.items() %}
+    {% set ns.reqs = ns.reqs + 1 %}
+    {% for layer, data in layers.items() %}
+      {% for ac in data.acceptance_criteria | default([]) %}
+        {% if not ac.out_of_scope %}
+          {% set ns.ac_total = ns.ac_total + 1 %}
+          {% if ac.covered %}{% set ns.ac_ok = ns.ac_ok + 1 %}{% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  {% endfor %}
+
+  <h2>Overall</h2>
+  <dl class="rm-meta">
+    <dt>Requirements with coverage</dt><dd>{{ ns.reqs }}</dd>
+    <dt>Acceptance criteria covered</dt>
+    <dd>{{ ns.ac_ok }} / {{ ns.ac_total }}{% if ns.ac_total and ns.ac_ok < ns.ac_total %}
+      <span class="rm-cov__report--gap">({{ ns.ac_total - ns.ac_ok }} open)</span>{% endif %}</dd>
+  </dl>
+
+  {% for rid, layers in test_coverage.items() %}
+  <div class="rm-card rm-card--coverage" id="cov-{{ rid | lower }}">
+    <div class="rm-card__head">
+      <span class="rm-kind">COVERAGE</span>
+      <span class="rm-id">{{ rid }}</span>
+      {% if xref is defined and xref.requirement and xref.requirement.get(rid) %}
+        <a class="rm-cov__reqlink" href="{{ base_url }}/{{ xref.requirement[rid].url }}">{{ xref.requirement[rid].title }}</a>
+      {% endif %}
+    </div>
+
+    {% for layer, data in layers.items() %}
+      {% set m = data.mechanical | default({}) %}
+      <h3 class="rm-cov__layer">{{ layer | capitalize }}
+        {% if data.status %}<span class="tag tag--status tag--status-{{ data.status }}">{{ data.status }}</span>{% endif %}
+        {% if data.action_taken %}<span class="tag">{{ data.action_taken }}</span>{% endif %}
+      </h3>
+
+      <dl class="rm-meta">
+        {% if m.line is defined %}<dt>Line</dt><dd>{{ m.line }} %</dd>{% endif %}
+        {% if m.branch is defined %}<dt>Branch</dt><dd>{{ m.branch }} %</dd>{% endif %}
+      </dl>
+
+      {% if data.acceptance_criteria %}
+      <table class="rm-cov__ac">
+        <thead><tr><th>Acceptance criterion</th><th>Covered</th><th>Tests</th></tr></thead>
+        <tbody>
+          {% for ac in data.acceptance_criteria %}
+          {% if ac.out_of_scope %}
+          <tr class="rm-cov__ac--na">
+            <td><strong>{{ ac.id }}</strong> — {{ ac.text }}</td>
+            <td>→ {{ ac.owner | default("other layer") }}</td>
+            <td><em>out of {{ layer }} scope</em></td>
+          </tr>
+          {% else %}
+          <tr class="{{ 'rm-cov__ac--ok' if ac.covered else 'rm-cov__ac--gap' }}">
+            <td><strong>{{ ac.id }}</strong> — {{ ac.text }}</td>
+            <td>{{ '✓' if ac.covered else '✗' }}</td>
+            <td>{% for t in ac.tests %}<code>{{ t }}</code>{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      {% if data.changes %}
+      <p class="rm-cov__report"><strong>What changed</strong></p>
+      <ul>{% for c in data.changes %}<li>{{ c }}</li>{% endfor %}</ul>
+      {% endif %}
+
+      {% if data.gaps %}
+      <p class="rm-cov__report rm-cov__report--gap"><strong>Not yet fulfilled</strong></p>
+      <ul>{% for g in data.gaps %}<li>{{ g }}</li>{% endfor %}</ul>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+{% endif %}
+</div>

@@ -1,0 +1,58 @@
+{#- Render a table of every feature whose `Product` field contains `target_id`,
+    showing each feature's source-tier tag and which source/evidence channels
+    (board / spec / legacy / SQL) it draws on. Data comes from the `xref` registry.
+
+    Caller supplies via {% with %}:
+        target_id:  the product ID to match (e.g. "PRODUCT-001")
+        heading:    section heading text (optional; omit to render table only)
+
+    Mirrors back-links.html's token normalisation so a feature's `Product`
+    may be a YAML list, a comma-separated string, or a plain string. -#}
+{% set registry = (xref | default({})).get("feature", {}) %}
+{% set matches = [] %}
+{% for entry_id, entry in registry.items() %}
+  {%- if "Product" in entry.meta -%}
+    {%- set field_val = entry.meta["Product"] -%}
+    {%- if field_val and field_val != 0 -%}
+      {%- if field_val is string -%}
+        {%- set tokens = [] -%}
+        {%- for chunk in field_val.split(",") -%}
+          {%- set tok = chunk.strip() -%}
+          {%- if tok -%}{%- set _ = tokens.append(tok) -%}{%- endif -%}
+        {%- endfor -%}
+      {%- else -%}
+        {%- set tokens = [] -%}
+        {%- for raw in field_val -%}
+          {%- set tok = (raw | string).strip() -%}
+          {%- if tok -%}{%- set _ = tokens.append(tok) -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+      {%- if target_id in tokens -%}
+        {%- set _ = matches.append(entry) -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{% endfor %}
+{% if matches %}
+  {% if heading %}<h2 class="rm-meta__sub">{{ heading }}</h2>{% endif %}
+  <table class="rm-feature-map md-typeset">
+    <thead>
+      <tr><th>Feature</th><th>Source Tier</th><th>Sources</th></tr>
+    </thead>
+    <tbody>
+      {% for entry in matches %}
+        {% set tier = entry.meta.source_tier | default("") %}
+        <tr>
+          <td><a href="{{ base_url }}/{{ entry.url }}"><code>{{ entry.meta.id }}</code></a>{% if entry.title and entry.title != entry.meta.id %} — {{ entry.title }}{% endif %}</td>
+          <td>{% if tier %}<span class="tag tag--source-tier-{{ tier }}">{{ tier | upper }}</span>{% endif %}</td>
+          <td class="rm-feature-map__src">
+            {% if entry.meta.azure_story_ids %}<span class="rm-srcpill rm-srcpill--azure">Azure ×{{ entry.meta.azure_story_ids | length }}</span>{% endif %}
+            {% if entry.meta.source %}<span class="rm-srcpill rm-srcpill--spec">Spec</span>{% endif %}
+            {% if entry.meta.cf_source %}<span class="rm-srcpill rm-srcpill--legacy">Legacy</span>{% endif %}
+            {% if entry.meta.sql_source %}<span class="rm-srcpill rm-srcpill--sql">SQL</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}

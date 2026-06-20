@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{PROJECT-NAME} csharp Architecture Diagrams</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --ink: #1f2937;
+      --muted: #596579;
+      --line: #475569;
+      --soft-line: #cbd5e1;
+      --api: #e8f1ff;
+      --app: #edf7ee;
+      --domain: #fff3d6;
+      --infra: #f2eaff;
+      --frontend: #e9fbf7;
+      --external: #fff0f0;
+      --test: #eef2ff;
+      --shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1240px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 40px 0 72px;
+    }
+
+    header {
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 920px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 24px;
+    }
+
+    .diagram-card {
+      background: var(--paper);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      overflow: hidden;
+    }
+
+    .diagram-note {
+      margin-bottom: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    .box {
+      fill: #fff;
+      stroke: #94a3b8;
+      stroke-width: 1.4;
+      rx: 8;
+      ry: 8;
+    }
+
+    .api { fill: var(--api); }
+    .application { fill: var(--app); }
+    .domain { fill: var(--domain); }
+    .infrastructure { fill: var(--infra); }
+    .frontend { fill: var(--frontend); }
+    .external { fill: var(--external); }
+    .test { fill: var(--test); }
+    .neutral { fill: #f8fafc; }
+
+    .group {
+      fill: none;
+      stroke: #cbd5e1;
+      stroke-width: 1.2;
+      stroke-dasharray: 8 6;
+      rx: 12;
+      ry: 12;
+    }
+
+    .arrow,
+    .arrow-soft {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 2;
+      marker-end: url(#arrow);
+    }
+
+    .arrow-soft {
+      stroke: #64748b;
+      stroke-width: 1.7;
+      marker-end: url(#arrow-soft);
+    }
+
+    .dashed {
+      stroke-dasharray: 7 5;
+    }
+
+    text {
+      fill: var(--ink);
+      font-size: 16px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      fill: var(--muted);
+      font-size: 13px;
+    }
+
+    .small {
+      fill: var(--muted);
+      font-size: 12px;
+    }
+
+    .label {
+      fill: var(--line);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .swimlane {
+      fill: #f8fafc;
+      stroke: #e2e8f0;
+      stroke-width: 1;
+      rx: 10;
+      ry: 10;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .legend i {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid #94a3b8;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>{PROJECT-NAME} csharp Architecture Diagrams</h1>
+    <p>Static architecture diagrams for the current implementation under <code>csharp/src</code>. Replace <code>{PROJECT-NAME}</code> and <code>{CLIENT-NAME}</code> with your actual project and client names. Last reviewed: 2026-06-02. These diagrams complement <code>docs/architecture/csharp-source-architecture.md</code>.</p>
+  </header>
+
+  <div class="grid">
+    <section class="diagram-card">
+      <h2>1. System Context</h2>
+      <p class="diagram-note">Primary runtime components and external dependencies observed in the backend, frontend, docker-compose, and project files.</p>
+      <svg viewBox="0 0 1120 700" role="img" aria-labelledby="system-context-title">
+        <title id="system-context-title">System context diagram for csharp source</title>
+        <defs>
+          <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M2,2 L10,6 L2,10 Z" fill="#475569"></path>
+          </marker>
+          <marker id="arrow-soft" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"></path>
+          </marker>
+        </defs>
+
+        <rect class="box neutral" x="40" y="280" width="170" height="90"></rect>
+        <text class="title" x="125" y="318" text-anchor="middle">{CLIENT-NAME} staff</text>
+        <text class="subtitle" x="125" y="344" text-anchor="middle">Browser user</text>
+
+        <rect class="box frontend" x="280" y="250" width="220" height="135"></rect>
+        <text class="title" x="390" y="292" text-anchor="middle">Next.js frontend</text>
+        <text class="subtitle" x="390" y="318" text-anchor="middle">React, Redux Toolkit</text>
+        <text class="subtitle" x="390" y="340" text-anchor="middle">next-intl, {CLIENT-NAME} UI</text>
+
+        <rect class="box api" x="585" y="230" width="230" height="160"></rect>
+        <text class="title" x="700" y="275" text-anchor="middle">{PROJECT-NAME} API</text>
+        <text class="subtitle" x="700" y="302" text-anchor="middle">ASP.NET Core minimal API</text>
+        <text class="subtitle" x="700" y="324" text-anchor="middle">MediatR application flow</text>
+        <text class="subtitle" x="700" y="346" text-anchor="middle">JWT auth and Swagger</text>
+
+        <rect class="box infrastructure" x="585" y="455" width="230" height="115"></rect>
+        <text class="title" x="700" y="494" text-anchor="middle">Event consumer</text>
+        <text class="subtitle" x="700" y="520" text-anchor="middle">Messaging worker</text>
+        <text class="subtitle" x="700" y="542" text-anchor="middle">Domain event upsert</text>
+
+        <rect class="box infrastructure" x="900" y="160" width="180" height="70"></rect>
+        <text class="title" x="990" y="194" text-anchor="middle">SQL Server</text>
+        <text class="subtitle" x="990" y="216" text-anchor="middle">{Project}Db, QueueDb</text>
+
+        <rect class="box infrastructure" x="900" y="260" width="180" height="70"></rect>
+        <text class="title" x="990" y="294" text-anchor="middle">Search backend</text>
+        <text class="subtitle" x="990" y="316" text-anchor="middle">Search indexes</text>
+
+        <rect class="box infrastructure" x="900" y="365" width="180" height="85"></rect>
+        <text class="title" x="990" y="397" text-anchor="middle">Messaging broker</text>
+        <text class="subtitle" x="990" y="422" text-anchor="middle">{ClientNamespace}.Events</text>
+        <text class="subtitle" x="990" y="442" text-anchor="middle">Schema registry</text>
+
+        <rect class="box external" x="895" y="500" width="190" height="120"></rect>
+        <text class="title" x="990" y="533" text-anchor="middle">External services</text>
+        <text class="subtitle" x="990" y="558" text-anchor="middle">{ServiceA}, {ServiceB}</text>
+        <text class="subtitle" x="990" y="578" text-anchor="middle">Microsoft Graph</text>
+        <text class="subtitle" x="990" y="598" text-anchor="middle">Azure config, Redis</text>
+
+        <path class="arrow" d="M210 325 H280"></path>
+        <text class="label" x="245" y="313" text-anchor="middle">uses</text>
+        <path class="arrow" d="M500 318 H585"></path>
+        <text class="label" x="543" y="306" text-anchor="middle">REST</text>
+        <path class="arrow" d="M815 265 C850 230, 860 200, 900 195"></path>
+        <path class="arrow" d="M815 302 C855 295, 865 295, 900 295"></path>
+        <path class="arrow" d="M815 345 C850 365, 870 388, 900 405"></path>
+        <path class="arrow" d="M815 370 C865 430, 875 515, 895 560"></path>
+        <path class="arrow" d="M815 510 H900"></path>
+        <path class="arrow" d="M900 415 C855 420, 835 455, 815 490"></path>
+        <path class="arrow" d="M700 455 V390"></path>
+
+        <text class="small" x="44" y="665">Runtime note: the API composes application and infrastructure services. The event consumer is a separate worker process.</text>
+      </svg>
+      <div class="legend">
+        <span><i style="background: var(--frontend);"></i>Frontend</span>
+        <span><i style="background: var(--api);"></i>API/presentation</span>
+        <span><i style="background: var(--infra);"></i>Infrastructure</span>
+        <span><i style="background: var(--external);"></i>External dependency</span>
+      </div>
+    </section>
+
+    <section class="diagram-card">
+      <h2>2. Backend Project Dependencies</h2>
+      <p class="diagram-note">Compile-time dependency shape. The backend is a Clean Architecture-inspired layered/CQRS/DDD hybrid, not a strict onion.</p>
+      <svg viewBox="0 0 1120 660" role="img" aria-labelledby="backend-dependencies-title">
+        <title id="backend-dependencies-title">Backend project dependency diagram</title>
+        <defs>
+          <marker id="arrow2" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M2,2 L10,6 L2,10 Z" fill="#475569"></path>
+          </marker>
+        </defs>
+        <style>
+          #backend-deps .arrow { marker-end: url(#arrow2); }
+        </style>
+        <g id="backend-deps">
+          <rect class="box api" x="70" y="55" width="255" height="105"></rect>
+          <text class="title" x="198" y="93" text-anchor="middle">{Project}.API</text>
+          <text class="subtitle" x="198" y="119" text-anchor="middle">Minimal APIs</text>
+          <text class="subtitle" x="198" y="141" text-anchor="middle">Composition root</text>
+
+          <rect class="box infrastructure" x="795" y="55" width="255" height="105"></rect>
+          <text class="title" x="923" y="93" text-anchor="middle">ConsumersWorker</text>
+          <text class="subtitle" x="923" y="119" text-anchor="middle">Messaging worker</text>
+          <text class="subtitle" x="923" y="141" text-anchor="middle">Domain event ingestion</text>
+
+          <rect class="box infrastructure" x="410" y="165" width="300" height="105"></rect>
+          <text class="title" x="560" y="204" text-anchor="middle">{Project}.Infrastructure</text>
+          <text class="subtitle" x="560" y="230" text-anchor="middle">EF Core, repositories</text>
+          <text class="subtitle" x="560" y="252" text-anchor="middle">Messaging, Azure, search</text>
+
+          <rect class="box application" x="410" y="315" width="300" height="105"></rect>
+          <text class="title" x="560" y="353" text-anchor="middle">{Project}.Application</text>
+          <text class="subtitle" x="560" y="379" text-anchor="middle">Commands, queries, handlers</text>
+          <text class="subtitle" x="560" y="401" text-anchor="middle">Validators, abstractions, behaviors</text>
+
+          <rect class="box neutral" x="110" y="460" width="250" height="95"></rect>
+          <text class="title" x="235" y="496" text-anchor="middle">{Project}.Contracts</text>
+          <text class="subtitle" x="235" y="523" text-anchor="middle">Requests, responses</text>
+          <text class="subtitle" x="235" y="544" text-anchor="middle">Queue messages</text>
+
+          <rect class="box domain" x="435" y="460" width="250" height="95"></rect>
+          <text class="title" x="560" y="496" text-anchor="middle">{Project}.Domain</text>
+          <text class="subtitle" x="560" y="523" text-anchor="middle">Aggregates, entities</text>
+          <text class="subtitle" x="560" y="544" text-anchor="middle">Value objects, IDs</text>
+
+          <rect class="box neutral" x="435" y="585" width="250" height="55"></rect>
+          <text class="title" x="560" y="620" text-anchor="middle">{Project}.SharedKernel</text>
+
+          <path class="arrow" d="M325 108 C370 120, 382 185, 410 205"></path>
+          <text class="label" x="371" y="149">references</text>
+          <path class="arrow" d="M325 135 C365 180, 375 335, 410 365"></path>
+          <path class="arrow" d="M795 108 C745 120, 734 185, 710 205"></path>
+          <path class="arrow" d="M560 270 V315"></path>
+          <path class="arrow" d="M410 374 C345 395, 300 430, 250 460"></path>
+          <path class="arrow" d="M560 420 V460"></path>
+          <path class="arrow" d="M235 555 C305 595, 360 610, 435 612"></path>
+          <path class="arrow" d="M560 555 V585"></path>
+
+          <text class="small" x="62" y="630">Read arrows as project references. API references Infrastructure for composition; Infrastructure implements Application abstractions.</text>
+        </g>
+      </svg>
+    </section>
+
+    <section class="diagram-card">
+      <h2>3. Backend Request Flow</h2>
+      <p class="diagram-note">Typical API request path for command/query based endpoints such as primary workflow creation or lookup queries.</p>
+      <svg viewBox="0 0 1200 520" role="img" aria-labelledby="backend-request-title">
+        <title id="backend-request-title">Backend API request flow</title>
+        <defs>
+          <marker id="arrow3" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M2,2 L10,6 L2,10 Z" fill="#475569"></path>
+          </marker>
+        </defs>
+        <style>#backend-flow .arrow { marker-end: url(#arrow3); }</style>
+        <g id="backend-flow">
+          <rect class="box frontend" x="35" y="190" width="130" height="80"></rect>
+          <text class="title" x="100" y="224" text-anchor="middle">Frontend</text>
+          <text class="subtitle" x="100" y="248" text-anchor="middle">REST call</text>
+
+          <rect class="box api" x="215" y="170" width="150" height="120"></rect>
+          <text class="title" x="290" y="209" text-anchor="middle">Endpoint</text>
+          <text class="subtitle" x="290" y="234" text-anchor="middle">Route group</text>
+          <text class="subtitle" x="290" y="256" text-anchor="middle">Typed results</text>
+
+          <rect class="box neutral" x="415" y="170" width="155" height="120"></rect>
+          <text class="title" x="493" y="209" text-anchor="middle">Mapping</text>
+          <text class="subtitle" x="493" y="234" text-anchor="middle">Contract DTO</text>
+          <text class="subtitle" x="493" y="256" text-anchor="middle">to command/query</text>
+
+          <rect class="box application" x="620" y="170" width="160" height="120"></rect>
+          <text class="title" x="700" y="209" text-anchor="middle">MediatR</text>
+          <text class="subtitle" x="700" y="234" text-anchor="middle">ISender.Send</text>
+          <text class="subtitle" x="700" y="256" text-anchor="middle">Pipeline behaviors</text>
+
+          <rect class="box application" x="830" y="82" width="190" height="105"></rect>
+          <text class="title" x="925" y="119" text-anchor="middle">Behaviors</text>
+          <text class="subtitle" x="925" y="145" text-anchor="middle">Validation, caching</text>
+          <text class="subtitle" x="925" y="167" text-anchor="middle">Index queueing</text>
+
+          <rect class="box application" x="830" y="255" width="190" height="105"></rect>
+          <text class="title" x="925" y="292" text-anchor="middle">Handler</text>
+          <text class="subtitle" x="925" y="318" text-anchor="middle">Use-case orchestration</text>
+          <text class="subtitle" x="925" y="340" text-anchor="middle">ErrorOr result</text>
+
+          <rect class="box domain" x="1045" y="70" width="130" height="80"></rect>
+          <text class="title" x="1110" y="104" text-anchor="middle">Domain</text>
+          <text class="subtitle" x="1110" y="128" text-anchor="middle">Aggregates</text>
+
+          <rect class="box infrastructure" x="1045" y="185" width="130" height="80"></rect>
+          <text class="title" x="1110" y="219" text-anchor="middle">Repositories</text>
+          <text class="subtitle" x="1110" y="243" text-anchor="middle">EF Core</text>
+
+          <rect class="box external" x="1045" y="300" width="130" height="80"></rect>
+          <text class="title" x="1110" y="334" text-anchor="middle">Services</text>
+          <text class="subtitle" x="1110" y="358" text-anchor="middle">HTTP, messaging</text>
+
+          <path class="arrow" d="M165 230 H215"></path>
+          <path class="arrow" d="M365 230 H415"></path>
+          <path class="arrow" d="M570 230 H620"></path>
+          <path class="arrow" d="M780 220 C805 180, 810 145, 830 135"></path>
+          <path class="arrow" d="M780 245 C805 265, 810 292, 830 308"></path>
+          <path class="arrow" d="M1020 285 C1034 230, 1035 132, 1045 110"></path>
+          <path class="arrow" d="M1020 307 C1030 270, 1036 240, 1045 225"></path>
+          <path class="arrow" d="M1020 330 H1045"></path>
+
+          <path class="arrow dashed" d="M830 330 C690 455, 360 455, 290 290"></path>
+          <text class="label" x="600" y="445" text-anchor="middle">response mapped back to HTTP result</text>
+        </g>
+      </svg>
+    </section>
+
+    <section class="diagram-card">
+      <h2>4. Async and Event Processing</h2>
+      <p class="diagram-note">Observed asynchronous paths: workflow event/indexing work and inbound domain event consumption.</p>
+      <svg viewBox="0 0 1200 650" role="img" aria-labelledby="async-title">
+        <title id="async-title">Async and event processing diagram</title>
+        <defs>
+          <marker id="arrow4" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M2,2 L10,6 L2,10 Z" fill="#475569"></path>
+          </marker>
+        </defs>
+        <style>#async-flow .arrow { marker-end: url(#arrow4); }</style>
+        <g id="async-flow">
+          <rect class="swimlane" x="30" y="55" width="1140" height="255"></rect>
+          <text class="label" x="55" y="85">Workflow side effects (search indexing, messaging)</text>
+
+          <rect class="box application" x="65" y="130" width="185" height="95"></rect>
+          <text class="title" x="158" y="166" text-anchor="middle">Create handler</text>
+          <text class="subtitle" x="158" y="191" text-anchor="middle">Application use case</text>
+
+          <rect class="box infrastructure" x="320" y="80" width="190" height="90"></rect>
+          <text class="title" x="415" y="115" text-anchor="middle">ProducerEventService</text>
+          <text class="subtitle" x="415" y="140" text-anchor="middle">Messaging producers</text>
+
+          <rect class="box infrastructure" x="600" y="80" width="190" height="90"></rect>
+          <text class="title" x="695" y="115" text-anchor="middle">Messaging topics</text>
+          <text class="subtitle" x="695" y="140" text-anchor="middle">Domain events</text>
+
+          <rect class="box application" x="320" y="205" width="190" height="90"></rect>
+          <text class="title" x="415" y="240" text-anchor="middle">Index behavior</text>
+          <text class="subtitle" x="415" y="265" text-anchor="middle">IIndexable request</text>
+
+          <rect class="box infrastructure" x="600" y="205" width="190" height="90"></rect>
+          <text class="title" x="695" y="240" text-anchor="middle">EF queue</text>
+          <text class="subtitle" x="695" y="265" text-anchor="middle">WorkflowEntityMessage</text>
+
+          <rect class="box infrastructure" x="870" y="205" width="190" height="90"></rect>
+          <text class="title" x="965" y="240" text-anchor="middle">Index job</text>
+          <text class="subtitle" x="965" y="265" text-anchor="middle">Worker host handler</text>
+
+          <rect class="box infrastructure" x="1010" y="80" width="125" height="90"></rect>
+          <text class="title" x="1073" y="115" text-anchor="middle">Search backend</text>
+          <text class="subtitle" x="1073" y="140" text-anchor="middle">Search docs</text>
+
+          <path class="arrow" d="M250 160 H320"></path>
+          <path class="arrow" d="M510 125 H600"></path>
+          <path class="arrow" d="M250 195 C286 220, 296 242, 320 250"></path>
+          <path class="arrow" d="M510 250 H600"></path>
+          <path class="arrow" d="M790 250 H870"></path>
+          <path class="arrow" d="M965 205 C985 170, 1000 145, 1010 125"></path>
+
+          <rect class="swimlane" x="30" y="355" width="1140" height="240"></rect>
+          <text class="label" x="55" y="385">Domain event ingestion</text>
+
+          <rect class="box infrastructure" x="70" y="430" width="175" height="90"></rect>
+          <text class="title" x="158" y="465" text-anchor="middle">Domain event topic</text>
+          <text class="subtitle" x="158" y="490" text-anchor="middle">{ClientNamespace}.Events</text>
+
+          <rect class="box infrastructure" x="315" y="430" width="175" height="90"></rect>
+          <text class="title" x="403" y="465" text-anchor="middle">Messaging consumer</text>
+          <text class="subtitle" x="403" y="490" text-anchor="middle">Batch + deserialize</text>
+
+          <rect class="box infrastructure" x="560" y="430" width="190" height="90"></rect>
+          <text class="title" x="655" y="465" text-anchor="middle">Event middleware</text>
+          <text class="subtitle" x="655" y="490" text-anchor="middle">Map, hash, compare</text>
+
+          <rect class="box domain" x="815" y="430" width="155" height="90"></rect>
+          <text class="title" x="893" y="465" text-anchor="middle">{Entity} aggregate</text>
+          <text class="subtitle" x="893" y="490" text-anchor="middle">Row hash</text>
+
+          <rect class="box infrastructure" x="1015" y="430" width="120" height="90"></rect>
+          <text class="title" x="1075" y="465" text-anchor="middle">SQL Server</text>
+          <text class="subtitle" x="1075" y="490" text-anchor="middle">{Entity} table</text>
+
+          <path class="arrow" d="M245 475 H315"></path>
+          <path class="arrow" d="M490 475 H560"></path>
+          <path class="arrow" d="M750 475 H815"></path>
+          <path class="arrow" d="M970 475 H1015"></path>
+        </g>
+      </svg>
+    </section>
+
+    <section class="diagram-card">
+      <h2>5. Frontend Application Structure</h2>
+      <p class="diagram-note">Next.js pages delegate to feature components; Redux model folders and epics own shared workflow state and async API calls.</p>
+      <svg viewBox="0 0 1200 650" role="img" aria-labelledby="frontend-title">
+        <title id="frontend-title">Frontend architecture diagram</title>
+        <defs>
+          <marker id="arrow5" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M2,2 L10,6 L2,10 Z" fill="#475569"></path>
+          </marker>
+        </defs>
+        <style>#frontend-flow .arrow { marker-end: url(#arrow5); }</style>
+        <g id="frontend-flow">
+          <rect class="box frontend" x="60" y="80" width="190" height="100"></rect>
+          <text class="title" x="155" y="118" text-anchor="middle">src/pages</text>
+          <text class="subtitle" x="155" y="144" text-anchor="middle">Routes</text>
+          <text class="subtitle" x="155" y="166" text-anchor="middle">getStaticProps</text>
+
+          <rect class="box frontend" x="335" y="80" width="215" height="100"></rect>
+          <text class="title" x="443" y="118" text-anchor="middle">src/components</text>
+          <text class="subtitle" x="443" y="144" text-anchor="middle">Feature workflows</text>
+          <text class="subtitle" x="443" y="166" text-anchor="middle">Landing, primary screens</text>
+
+          <rect class="box frontend" x="335" y="240" width="215" height="105"></rect>
+          <text class="title" x="443" y="278" text-anchor="middle">src/common</text>
+          <text class="subtitle" x="443" y="304" text-anchor="middle">Reusable UI, hooks</text>
+          <text class="subtitle" x="443" y="326" text-anchor="middle">Assets, constants</text>
+
+          <rect class="box frontend" x="630" y="80" width="220" height="100"></rect>
+          <text class="title" x="740" y="118" text-anchor="middle">src/models</text>
+          <text class="subtitle" x="740" y="144" text-anchor="middle">slice/actions/epics</text>
+          <text class="subtitle" x="740" y="166" text-anchor="middle">selectors/types</text>
+
+          <rect class="box frontend" x="630" y="240" width="220" height="105"></rect>
+          <text class="title" x="740" y="278" text-anchor="middle">src/store</text>
+          <text class="subtitle" x="740" y="304" text-anchor="middle">rootReducer</text>
+          <text class="subtitle" x="740" y="326" text-anchor="middle">rootEpic, wrapper</text>
+
+          <rect class="box frontend" x="630" y="405" width="220" height="105"></rect>
+          <text class="title" x="740" y="443" text-anchor="middle">src/services</text>
+          <text class="subtitle" x="740" y="469" text-anchor="middle">REST adapters</text>
+          <text class="subtitle" x="740" y="491" text-anchor="middle">Payload/response types</text>
+
+          <rect class="box api" x="940" y="405" width="185" height="105"></rect>
+          <text class="title" x="1033" y="443" text-anchor="middle">{PROJECT-NAME} API</text>
+          <text class="subtitle" x="1033" y="469" text-anchor="middle">REST endpoints</text>
+          <text class="subtitle" x="1033" y="491" text-anchor="middle">/{resource}, /{account}</text>
+
+          <rect class="box neutral" x="60" y="405" width="235" height="105"></rect>
+          <text class="title" x="178" y="443" text-anchor="middle">src/core</text>
+          <text class="subtitle" x="178" y="469" text-anchor="middle">action creators, effects</text>
+          <text class="subtitle" x="178" y="491" text-anchor="middle">intl, HOCs, REST base</text>
+
+          <rect class="box external" x="60" y="240" width="235" height="105"></rect>
+          <text class="title" x="178" y="278" text-anchor="middle">UI providers</text>
+          <text class="subtitle" x="178" y="304" text-anchor="middle">{CLIENT-NAME} UI, Emotion</text>
+          <text class="subtitle" x="178" y="326" text-anchor="middle">next-intl, Snackbar</text>
+
+          <path class="arrow" d="M250 130 H335"></path>
+          <path class="arrow" d="M550 130 H630"></path>
+          <path class="arrow" d="M443 180 V240"></path>
+          <path class="arrow" d="M295 292 H335"></path>
+          <path class="arrow" d="M740 180 V240"></path>
+          <path class="arrow" d="M740 345 V405"></path>
+          <path class="arrow" d="M850 458 H940"></path>
+          <path class="arrow" d="M295 458 H630"></path>
+          <path class="arrow dashed" d="M630 300 C520 380, 365 435, 295 455"></path>
+          <path class="arrow dashed" d="M630 130 C520 105, 455 105, 550 130"></path>
+
+          <text class="small" x="62" y="592">Async convention: thunk is disabled; redux-observable epics call services and emit success/failure actions.</text>
+        </g>
+      </svg>
+    </section>
+
+    <section class="diagram-card">
+      <h2>6. Local Development, Tests, and Delivery</h2>
+      <p class="diagram-note">How the discovered project tooling fits together for verification and runtime packaging.</p>
+      <svg viewBox="0 0 1200 650" role="img" aria-labelledby="delivery-title">
+        <title id="delivery-title">Development testing and delivery topology</title>
+        <defs>
+          <marker id="arrow6" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M2,2 L10,6 L2,10 Z" fill="#475569"></path>
+          </marker>
+        </defs>
+        <style>#delivery-flow .arrow { marker-end: url(#arrow6); }</style>
+        <g id="delivery-flow">
+          <rect class="box neutral" x="60" y="80" width="160" height="90"></rect>
+          <text class="title" x="140" y="116" text-anchor="middle">Developer</text>
+          <text class="subtitle" x="140" y="142" text-anchor="middle">Local workspace</text>
+
+          <rect class="box test" x="300" y="55" width="210" height="115"></rect>
+          <text class="title" x="405" y="95" text-anchor="middle">Backend tests</text>
+          <text class="subtitle" x="405" y="121" text-anchor="middle">xUnit, FakeItEasy</text>
+          <text class="subtitle" x="405" y="143" text-anchor="middle">Testcontainers, WireMock</text>
+
+          <rect class="box test" x="300" y="215" width="210" height="115"></rect>
+          <text class="title" x="405" y="255" text-anchor="middle">Frontend tests</text>
+          <text class="subtitle" x="405" y="281" text-anchor="middle">Jest, Testing Library</text>
+          <text class="subtitle" x="405" y="303" text-anchor="middle">MSW, Playwright</text>
+
+          <rect class="box infrastructure" x="600" y="135" width="230" height="170"></rect>
+          <text class="title" x="715" y="174" text-anchor="middle">docker-compose</text>
+          <text class="subtitle" x="715" y="202" text-anchor="middle">ui :3000</text>
+          <text class="subtitle" x="715" y="224" text-anchor="middle">api :5000/:5001</text>
+          <text class="subtitle" x="715" y="246" text-anchor="middle">mssql, search backend</text>
+          <text class="subtitle" x="715" y="268" text-anchor="middle">wiremock</text>
+
+          <rect class="box api" x="905" y="55" width="210" height="105"></rect>
+          <text class="title" x="1010" y="93" text-anchor="middle">Backend image</text>
+          <text class="subtitle" x="1010" y="119" text-anchor="middle">ASP.NET runtime</text>
+          <text class="subtitle" x="1010" y="141" text-anchor="middle">API container</text>
+
+          <rect class="box frontend" x="905" y="205" width="210" height="105"></rect>
+          <text class="title" x="1010" y="243" text-anchor="middle">Frontend image</text>
+          <text class="subtitle" x="1010" y="269" text-anchor="middle">Next standalone</text>
+          <text class="subtitle" x="1010" y="291" text-anchor="middle">Node 18, pnpm</text>
+
+          <rect class="box infrastructure" x="300" y="405" width="210" height="105"></rect>
+          <text class="title" x="405" y="443" text-anchor="middle">CI/CD pipeline</text>
+          <text class="subtitle" x="405" y="469" text-anchor="middle">Build, test, package</text>
+          <text class="subtitle" x="405" y="491" text-anchor="middle">Deploy jobs</text>
+
+          <rect class="box infrastructure" x="600" y="405" width="230" height="105"></rect>
+          <text class="title" x="715" y="443" text-anchor="middle">Helm and Bicep</text>
+          <text class="subtitle" x="715" y="469" text-anchor="middle">Kubernetes release</text>
+          <text class="subtitle" x="715" y="491" text-anchor="middle">Infrastructure config</text>
+
+          <rect class="box external" x="905" y="405" width="210" height="105"></rect>
+          <text class="title" x="1010" y="443" text-anchor="middle">Runtime platform</text>
+          <text class="subtitle" x="1010" y="469" text-anchor="middle">Kubernetes</text>
+          <text class="subtitle" x="1010" y="491" text-anchor="middle">Cloud services</text>
+
+          <path class="arrow" d="M220 115 H300"></path>
+          <path class="arrow" d="M220 140 C255 190, 265 245, 300 273"></path>
+          <path class="arrow" d="M510 115 C555 130, 570 175, 600 190"></path>
+          <path class="arrow" d="M510 273 H600"></path>
+          <path class="arrow" d="M830 175 C860 130, 878 105, 905 108"></path>
+          <path class="arrow" d="M830 250 H905"></path>
+          <path class="arrow" d="M220 150 C260 270, 265 405, 300 455"></path>
+          <path class="arrow" d="M510 458 H600"></path>
+          <path class="arrow" d="M830 458 H905"></path>
+        </g>
+      </svg>
+    </section>
+  </div>
+</main>
+</body>
+</html>

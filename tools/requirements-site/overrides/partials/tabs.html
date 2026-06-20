@@ -1,0 +1,87 @@
+{# Custom top navigation with hover/accordion dropdowns for grouped nav sections.
+
+   DELIBERATE FULL OVERRIDE of mkdocs-material's `partials/tabs.html` (forked from
+   mkdocs-material 9.5.49). Material's built-in tabs do not support hover dropdown
+   menus, so this replaces the partial wholesale rather than extending it.
+   On every mkdocs-material upgrade, re-diff this against the upstream `tabs.html`
+   so markup/accessibility fixes are not silently lost.
+   Styles: docs/requirements/stylesheets/nav.css  ·  behaviour: javascripts/nav-accordion.js #}
+{% macro first_link(nav_item) -%}
+  {%- if nav_item.url -%}
+    {{ nav_item.url | url }}
+  {%- elif nav_item.children -%}
+    {%- set first = nav_item.children | first -%}
+    {%- if first.url -%}
+      {{ first.url | url }}
+    {%- elif first.children -%}
+      {%- set grandchild = first.children | first -%}
+      {{ grandchild.url | url }}
+    {%- else -%}
+      #
+    {%- endif -%}
+  {%- else -%}
+    #
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro dropdown_items(items) %}
+  <ul class="rm-tabs-dropdown__list">
+    {% for item in items %}
+      {% if item.children %}
+        <li class="rm-tabs-dropdown__group">
+          <a href="{{ first_link(item) }}" class="rm-tabs-dropdown__group-title">
+            {{ item.title }}
+          </a>
+          <ul class="rm-tabs-dropdown__sublist">
+            {% for child in item.children %}
+              <li>
+                <a href="{{ first_link(child) }}" class="rm-tabs-dropdown__link">
+                  {{ child.title }}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </li>
+      {% else %}
+        <li>
+          <a href="{{ item.url | url }}" class="rm-tabs-dropdown__link">
+            {{ item.title }}
+          </a>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+{% endmacro %}
+
+<nav class="md-tabs" aria-label="{{ lang.t('tabs') }}" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      {% for nav_item in nav.items %}
+        {% set class = "md-tabs__item rm-tabs-dropdown__item" %}
+        {% if nav_item.active %}
+          {% set class = class ~ " md-tabs__item--active" %}
+        {% endif %}
+        {% if nav_item.children %}
+          {% set class = class ~ " rm-tabs-dropdown__item--has-dropdown" %}
+        {% endif %}
+        <li class="{{ class }}">
+          {% if nav_item.children %}
+            <details class="rm-tabs-menu" name="main-nav">
+              <summary class="md-tabs__link rm-tabs-dropdown__summary"
+                       aria-haspopup="true" aria-expanded="false">
+                {{ nav_item.title }}
+              </summary>
+              <div class="rm-tabs-dropdown" aria-label="{{ nav_item.title }} Navigation">
+                {{ dropdown_items(nav_item.children) }}
+              </div>
+            </details>
+          {% else %}
+            <a href="{{ first_link(nav_item) }}" class="md-tabs__link">
+              {{ nav_item.title }}
+            </a>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</nav>

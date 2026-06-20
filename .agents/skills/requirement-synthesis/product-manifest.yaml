@@ -1,0 +1,50 @@
+# Product manifest — configure one entry per product/capability in your project.
+# Each product maps to a set of requirements (FEAT-* / REQ-*).
+# Fields:
+#   id: Unique product code used in PRODUCT-NNN requirement IDs
+#   name: Human-readable product name
+#   description: Brief description of what this product/capability covers
+#   feat_id_range: [start, end] — range of FEAT-* IDs assigned to this product
+#   legacy_primary_files: Main files in the legacy codebase for this product
+#   spec_sections: Sections in the specification document for this product
+#   azure_grep_terms: Keywords to grep Azure Boards stories for this product
+
+products:
+  - id: PROD-A
+    name: Example Product A
+    description: >
+      Core capability A — replace with your project's first product/module.
+    feat_id_range: [1, 50]
+    legacy_primary_files:
+      - "{LEGACY-CODEBASE-DIR}/module-a/"
+    spec_sections:
+      - "Section 1: Core Features"
+    azure_grep_terms:
+      - "product-a"
+      - "module-a"
+
+  - id: PROD-B
+    name: Example Product B
+    description: >
+      Capability B — replace with your project's second product/module.
+    feat_id_range: [51, 100]
+    legacy_primary_files:
+      - "{LEGACY-CODEBASE-DIR}/module-b/"
+    spec_sections:
+      - "Section 2: Extended Features"
+    azure_grep_terms:
+      - "product-b"
+      - "module-b"
+
+  - id: PROD-C
+    name: Example Product C
+    description: >
+      Capability C — replace with your project's third product/module.
+    feat_id_range: [101, 150]
+    legacy_primary_files:
+      - "{LEGACY-CODEBASE-DIR}/module-c/"
+    spec_sections:
+      - "Section 3: Integration Features"
+    azure_grep_terms:
+      - "product-c"
+      - "module-c"

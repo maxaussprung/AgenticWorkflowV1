@@ -1,0 +1,155 @@
+parameters:
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: condition
+    type: string
+    default: "succeeded()"
+
+  - name: dockerComposeFile
+    type: string
+    default: "$(defaultDockerComposeFile)"
+
+  - name: dockerComposeCommand
+    type: string
+    default: "up -d"
+
+  - name: containerRegistryType
+    type: string
+    default: "Container Registry"
+    values:
+      - "Azure Container Registry"
+      - "Container Registry"
+
+  - name: projectName
+    type: string
+    default: "$(Build.Repository.Name)"
+
+  - name: cachePath
+    type: string
+    default: /home/AzDevOps/.local/share/pnpm/store/
+
+  - name: certificateDir
+    type: string
+    default: /home/AzDevOps/.aspnet/https
+
+  - name: URL
+    type: string
+    default: "http://localhost:3000"
+
+  - name: testType
+    type: string
+
+  - name: stageDisplayName
+    type: string
+
+steps:
+  - script: |
+      echo "##[debug] Build.Reason             : ${{ variables['Build.Reason'] }}"
+      echo "##[debug] SourceBranch             : ${{ variables['Build.SourceBranch'] }}"
+      echo "##[debug] PullRequest.TargetBranch : ${{ variables['System.PullRequest.TargetBranch'] }}"
+      echo "##[debug] Working.Dir              : $('System.DefaultWorkingDirectory')"
+      echo "##[debug] Reposistory.Name : $(Build.Repository.Name)"
+    displayName: Print Build Variables
+
+  - script: |
+      echo "##[debug] Parameters:"
+      echo "##[debug] Condition: ${{parameters.condition}}"
+      echo "##[debug] Docker-Compose File: ${{parameters.dockerComposeFile}}"
+      echo "##[debug] Docker-Compose Command: ${{parameters.dockerComposeCommand}}"
+      echo "##[debug] Container Registry Type: ${{parameters.containerRegistryType}}"
+      echo "##[debug] Project Name: ${{ parameters.projectName }}"
+    displayName: "Prep: Run Docker-Compose"
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-command-v2
+  - task: NuGetCommand@2
+    condition: succeeded()
+    displayName: Add Auth to nuget.config
+    inputs:
+      command: custom
+      arguments: sources Update -Name "{client-name}" -Source
+        "https://pkgs.dev.azure.com/{client-name}/_packaging/{client-name}/nuget/v3/index.json"
+        -username "not_used" -password $(System.AccessToken) -ConfigFile
+        $(Build.SourcesDirectory)/nuget.config -StorePasswordInClearText
+
+  - task: Bash@3
+    displayName: Export PAT System Access Token
+    inputs:
+      targetType: "inline"
+      script: |
+        echo "##vso[task.setvariable variable=PAT]$SYSTEM_ACCESSTOKEN"
+        echo "##vso[task.setvariable variable=API_CERTIFICATE_PASSWORD]$API_CERTIFICATE_PASSWORD"
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      API_CERTIFICATE_PASSWORD: $(API_CERTIFICATE_PASSWORD)
+
+  - task: Bash@3
+    displayName: Generate ASP.NET Dev Certificate
+    env:
+      API_CERTIFICATE_PASSWORD: $(API_CERTIFICATE_PASSWORD)
+    inputs:
+      targetType: "inline"
+      script: |
+        echo "##[debug] Creating certificate directory"
+        mkdir -p "${{ parameters.certificateDir }}"
+
+        echo "##[debug] Generating dev certificate"
+        dotnet dev-certs https -ep "${{ parameters.certificateDir }}/aspnetapp.pfx" -p "$API_CERTIFICATE_PASSWORD"
+
+        echo "##[debug]Passing Certificate Password to .env"
+        echo "API_CERTIFICATE_PASSWORD=$API_CERTIFICATE_PASSWORD" >> .env
+
+        echo "##[debug] Setting permissions..."
+        chmod 644 "${{ parameters.certificateDir }}/aspnetapp.pfx"
+
+  - task: DockerCompose@1
+    displayName: "Exec: Run Docker-Compose"
+    condition: succeeded()
+    inputs:
+      containerregistrytype: "${{ parameters.containerRegistryType }}"
+      dockerComposeFile: "$(System.DefaultWorkingDirectory)/docker-compose.yml"
+      dockerComposeCommand: "${{ parameters.dockerComposeCommand }} --build"
+      projectName: "{project-name}"
+
+  - task: NodeTool@0
+    condition: succeeded()
+    displayName: Install Node.js
+    inputs:
+      versionSpec: "18.19.1"
+
+  - template: job-cache-and-install-frontend-dependencies.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      cachePath: ${{ parameters.cachePath }}
+
+  - task: CmdLine@2
+    displayName: Check Docker Containers
+    inputs:
+      script: |
+        docker ps -a
+        docker logs "${SERVICE_NAME:-{project-name}_api}"
+
+  - task: Bash@3
+    condition: succeeded()
+    displayName: Check Backend Readiness
+    inputs:
+      targetType: filePath
+      filePath: $(Build.SourcesDirectory)/azure/scripts/check_backend_readiness.sh
+    env:
+      URL: localhost
+      PORT: 5000
+
+  - template: job-install-and-run-playwright.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      URL: ${{ parameters.URL }}
+      testType: ${{ parameters.testType }}
+      stageDisplayName: ${{ parameters.stageDisplayName }}
+      IsAzureReporterDisabled: "false"
+
+  - template: job-publish-playwright-report.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      testType: ${{parameters.testType}}
+      stageDisplayName: ${{parameters.stageDisplayName}}

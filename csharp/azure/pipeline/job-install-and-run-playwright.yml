@@ -1,0 +1,46 @@
+parameters:
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: URL
+    type: string
+    default: ""
+
+  - name: testType
+    type: string
+
+  - name: stageDisplayName
+    type: string
+
+  - name: ADO_PERSONAL_ACCESS_TOKEN
+    type: string
+    default: ""
+
+  - name: IsAzureReporterDisabled
+    type: string
+    default: "true"
+
+  - name: Retry
+    type: string
+    default: "true"
+
+steps:
+  - task: CmdLine@2
+    displayName: Install Playright
+    condition: succeeded()
+    inputs:
+      script: npx playwright install --with-deps
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}
+
+  - task: CmdLine@2
+    displayName: Run ${{ parameters.stageDisplayName }}
+    condition: succeeded()
+    env:
+      URL: ${{ parameters.URL }}
+      ADO_PERSONAL_ACCESS_TOKEN: $(ADO_PERSONAL_ACCESS_TOKEN)
+      IsAzureReporterDisabled: ${{parameters.IsAzureReporterDisabled}}
+      Retry: ${{parameters.Retry}}
+    inputs:
+      script: pnpm test:${{ parameters.testType}}
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}

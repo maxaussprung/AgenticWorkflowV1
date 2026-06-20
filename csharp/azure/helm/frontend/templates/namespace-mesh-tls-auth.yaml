@@ -1,0 +1,10 @@
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: {{ include "release.fullname" . }}-ns-meshauth
+  namespace: {{ .Release.Namespace }}
+spec:
+  identityRefs:
+    - kind: ServiceAccount
+      name: default
+      namespace: {{ .Release.Namespace }}

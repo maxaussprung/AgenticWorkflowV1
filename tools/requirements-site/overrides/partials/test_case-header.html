@@ -1,0 +1,25 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set requirements = page.meta.requirements | default([]) %}
+{% set owner = page.meta.owner | default("") %}
+{% set status = page.meta.status | default("") %}
+{% set test_type = page.meta.test_type | default("") %}
+
+<div class="rm-card rm-card--test_case md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">TEST CASE</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+  <dl class="rm-meta">
+    {% if owner %}<dt>Owner</dt><dd>{{ owner }}</dd>{% endif %}
+    {% if status %}<dt>Status</dt><dd><span class="tag tag--status tag--status-{{ status }}">{{ status }}</span></dd>{% endif %}
+    {% if test_type %}<dt>Test type</dt><dd><span class="tag tag--testtype tag--testtype-{{ test_type }}">{{ test_type }}</span></dd>{% endif %}
+  </dl>
+
+  {% with ids_raw=requirements, xref_type="requirement", heading="Verifies Requirements" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

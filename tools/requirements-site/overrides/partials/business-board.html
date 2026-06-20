@@ -1,0 +1,163 @@
+{% set products = (xref | default({})).get("product", {}) %}
+{% set features = (xref | default({})).get("feature", {}) %}
+{% set requirements = (xref | default({})).get("requirement", {}) %}
+
+{% set columns = [
+  {"id": "backlog", "title": "Backlog", "statuses": ["", "pending", "planned"]},
+  {"id": "done", "title": "Done", "statuses": ["implemented", "verified"]}
+] %}
+
+<script>document.body.classList.add("business-board-page");</script>
+
+<div class="business-board" id="business-board-root">
+  <div class="business-board__toolbar">
+    <label>
+      Product
+      <select id="business-board-product">
+        <option value="all">All products</option>
+        {% for product_id, product in products.items() %}
+          <option value="{{ product_id }}">{{ product_id }} - {{ product.title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Search
+      <input id="business-board-search" type="search" placeholder="Product, feature, requirement..." />
+    </label>
+  </div>
+
+  <div class="business-board__summary" id="business-board-summary">
+    <div class="business-board__stat"><strong>0</strong><span>Features</span></div>
+    <div class="business-board__stat"><strong>0</strong><span>Requirements</span></div>
+    <div class="business-board__stat"><strong>All</strong><span>Products</span></div>
+  </div>
+
+  <div class="business-board__columns">
+    {% for column in columns %}
+      <section class="business-board__column business-board__column--{{ column.id }}" data-column="{{ column.id }}">
+        <header>
+          <h2>{{ column.title }}</h2>
+          <span class="business-board__count"></span>
+        </header>
+
+        <div class="business-board__cards">
+          {% for feature_id, feature in features.items() %}
+            {% set raw_status = (feature.meta.implementation_status | default("") | string).strip() %}
+            {% set normalized_status = raw_status | lower %}
+            {% if normalized_status in column.statuses %}
+              {% set raw_feature_products = feature.meta.Product | default(feature.meta.product | default([])) %}
+              {% set feature_products = [] %}
+              {% if raw_feature_products is string %}
+                {% for chunk in raw_feature_products.split(",") %}
+                  {% set token = chunk.strip() %}
+                  {% if token %}{% set _ = feature_products.append(token) %}{% endif %}
+                {% endfor %}
+              {% else %}
+                {% for raw in raw_feature_products %}
+                  {% set token = (raw | string).strip() %}
+                  {% if token %}{% set _ = feature_products.append(token) %}{% endif %}
+                {% endfor %}
+              {% endif %}
+
+              {% set product_text = [] %}
+              {% for product_id in feature_products %}
+                {% set product = products.get(product_id) %}
+                {% if product %}
+                  {% set _ = product_text.append(product_id ~ " " ~ product.title) %}
+                {% else %}
+                  {% set _ = product_text.append(product_id) %}
+                {% endif %}
+              {% endfor %}
+
+              <article class="business-board__card"
+                       data-products="{{ feature_products | join(' ') }}"
+                       data-status="{{ normalized_status or 'pending' }}"
+                       data-text="{{ feature_id }} {{ feature.title | lower }} {{ product_text | join(' ') | lower }}">
+                <div class="business-board__card-head">
+                  <a href="{{ base_url }}/{{ feature.url }}">{{ feature_id }}</a>
+                  <span>{{ raw_status or "pending" }}</span>
+                </div>
+                <h3>{{ feature.title }}</h3>
+
+                <div class="business-board__products">
+                  {% for product_id in feature_products %}
+                    {% set product = products.get(product_id) %}
+                    <a href="{{ base_url }}/{{ product.url if product else 'products/index.html' }}"
+                       data-product-token="{{ product_id }}">{{ product_id }}</a>
+                  {% endfor %}
+                </div>
+
+                <div class="business-board__requirements">
+                  {% for req_id, req in requirements.items() %}
+                    {% if req.meta.feature == feature_id %}
+                      {% set req_priority = req.meta.priority | default("none") %}
+                      {% set req_status = req.meta.status | default("") %}
+                      <a class="business-board__req business-board__req--{{ req_priority }}"
+                         href="{{ base_url }}/{{ req.url }}"
+                         data-text="{{ req_id }} {{ req.title | lower }} {{ req_status | lower }}">
+                        <strong>{{ req_id }}</strong>
+                        <span>{{ req.title }}</span>
+                        {% if req_status %}<em>{{ req_status }}</em>{% endif %}
+                      </a>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </article>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById("business-board-root");
+  if (!root) return;
+
+  const productSelect = document.getElementById("business-board-product");
+  const searchInput = document.getElementById("business-board-search");
+  const summaryEl = document.getElementById("business-board-summary");
+  function isVisible(element) {
+    return element && element.hidden !== true;
+  }
+
+  function render() {
+    const columns = Array.from(root.querySelectorAll(".business-board__column"));
+    const cards = Array.from(root.querySelectorAll(".business-board__card"));
+    const selectedProduct = productSelect.value || "all";
+    const query = (searchInput.value || "").trim().toLowerCase();
+
+    cards.forEach(card => {
+      const productTokens = (card.dataset.products || "").split(/\s+/).filter(Boolean);
+      const productMatches = selectedProduct === "all" || productTokens.includes(selectedProduct);
+      const cardMatches = !query || (card.dataset.text || "").includes(query);
+      const reqMatches = Array.from(card.querySelectorAll(".business-board__req")).some(req =>
+        (req.dataset.text || "").includes(query)
+      );
+      card.hidden = !(productMatches && (cardMatches || reqMatches));
+    });
+
+    columns.forEach(column => {
+      const visibleCards = Array.from(column.querySelectorAll(".business-board__card")).filter(isVisible);
+      const count = column.querySelector(".business-board__count");
+      if (count) count.textContent = String(visibleCards.length);
+      column.hidden = visibleCards.length === 0 && selectedProduct !== "all";
+    });
+
+    const visibleCards = cards.filter(isVisible);
+    const visibleReqs = Array.from(root.querySelectorAll(".business-board__req"))
+      .filter(req => isVisible(req.closest(".business-board__card")));
+    summaryEl.innerHTML = [
+      ["Features", visibleCards.length],
+      ["Requirements", visibleReqs.length],
+      ["Products", selectedProduct === "all" ? "All" : selectedProduct]
+    ].map(([label, value]) => `<div class="business-board__stat"><strong>${value}</strong><span>${label}</span></div>`).join("");
+  }
+
+  productSelect.addEventListener("change", render);
+  searchInput.addEventListener("input", render);
+  render();
+})();
+</script>

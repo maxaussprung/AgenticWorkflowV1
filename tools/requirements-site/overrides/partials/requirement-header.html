@@ -1,0 +1,173 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set feature = page.meta.feature | default("") %}
+{% set applications = page.meta.applications | default([]) %}
+{% set gov_status = page.meta.status | default("") %}
+{# Implementation owner + status come from openspec/track.md (single source of truth),
+   exposed by the cross_refs hook — NOT from this page's frontmatter. #}
+{% set impl_owner = (req_impl_owner | default({})).get(id) %}
+{% set impl_status = (req_impl_status | default({})).get(id) %}
+{% set priority = page.meta.priority | default("") %}
+{% set tier = page.meta.tier | default("") %}
+{% set kind = page.meta.kind | default("") %}
+{% set nfr_category = page.meta.nfr_category | default("") %}
+{% set source = page.meta.source | default("") %}
+{% set source_tier = page.meta.source_tier | default("") %}
+{% set openspec_change = page.meta.openspec_change | default("") %}
+{% set implementation_work_item = page.meta.implementation_work_item | default("") %}
+{% set azure_story_ids = page.meta.azure_story_ids | default([]) %}
+{% set cf_source = page.meta.cf_source | default([]) %}
+{% set sql_source = page.meta.sql_source | default([]) %}
+{% set source_conflict_note = page.meta.source_conflict_note | default("") %}
+{% set tags = page.meta.tags | default([]) %}
+{% set depends_on = page.meta.depends_on | default([]) %}
+
+<div class="rm-card rm-card--requirement md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">REQUIREMENT</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+  <dl class="rm-meta">
+    {% if impl_owner %}<dt>Owner</dt><dd>{{ impl_owner }}</dd>{% endif %}
+    <dt>Implementation</dt>
+    <dd>
+      {% if impl_status == "done" %}<span class="tag tag--impl-done">Done</span>
+      {% elif impl_status == "in-progress" %}<span class="tag tag--impl-in-progress">In Progress</span>
+      {% else %}<span class="tag tag--impl-open">Open</span>{% endif %}
+    </dd>
+    {% if gov_status %}<dt>Status</dt><dd><span class="tag tag--status tag--status-{{ gov_status }}">{{ gov_status }}</span></dd>{% endif %}
+    {% if priority %}<dt>Priority</dt><dd><span class="tag tag--priority tag--priority-{{ priority }}">{{ priority }}</span></dd>{% endif %}
+    {% if tier %}<dt>Tier</dt><dd><span class="tag tag--tier tag--tier-{{ tier }}">Tier {{ tier }}</span></dd>{% endif %}
+    {% if kind %}
+      <dt>Kind</dt>
+      <dd>
+        <span class="tag tag--kind tag--kind-{{ kind }}">{{ kind }}</span>
+        {% if kind == "non-functional" and nfr_category %}
+          <span class="tag tag--nfr">{{ nfr_category }}</span>
+        {% endif %}
+      </dd>
+    {% endif %}
+    {% if source_tier %}<dt>Source Tier</dt><dd><span class="tag tag--source-tier-{{ source_tier }}">{{ source_tier | upper }}</span></dd>{% endif %}
+    {% if openspec_change %}
+      <dt>Implemented by</dt>
+      <dd>
+        <span class="tag tag--openspec">OpenSpec change</span>
+        <code>openspec/changes/{{ openspec_change }}/</code>
+        <span class="rm-meta__note">— see this change's <code>proposal.md</code> for the forward link (capability → REQ IDs).</span>
+      </dd>
+    {% endif %}
+    {# Replace the Azure DevOps org/project URL prefix below with your project's. #}
+    {% if implementation_work_item %}
+      <dt>Implementation ticket</dt>
+      <dd><a href="https://dev.azure.com/{AZURE-DEVOPS-ORG}/{AZURE-DEVOPS-PROJECT}/_workitems/edit/{{ implementation_work_item }}">Azure&nbsp;#{{ implementation_work_item }}</a></dd>
+    {% endif %}
+    {% if source or azure_story_ids or cf_source or sql_source %}
+      <dt>Sources</dt>
+      <dd>
+        <div class="rm-sources">
+          {% if azure_story_ids %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Azure (gold)</span>
+              {% set _az = [azure_story_ids] if azure_story_ids is not iterable or azure_story_ids is string or azure_story_ids is mapping else azure_story_ids %}
+              {% for sid in _az %}<span class="rm-azure-id">#{{ sid }}</span>{% endfor %}
+            </div>
+          {% endif %}
+          {% if source %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Spec (silver)</span>
+              {% if source is string %}
+                {{ source }}
+              {% else %}
+                {% set _src_items = [source] if source is mapping else source %}
+                <ul class="rm-source-list">
+                {% for s in _src_items %}
+                  <li>
+                    {% if s is mapping %}
+                      {% set _doc = (xref.get('source-document', {})).get(s.document) %}
+                      {% if _doc %}<a href="{{ base_url }}/{{ _doc.url }}">{{ s.document }}</a>{% else %}{{ s.document }}{% endif %}
+                      {% if s.section %} — {{ s.section }}{% endif %}
+                      {% if s.note %} <em>({{ s.note }})</em>{% endif %}
+                    {% else %}
+                      {{ s }}
+                    {% endif %}
+                  </li>
+                {% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+          {% endif %}
+          {% if cf_source %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Legacy source (bronze)</span>
+              {% set _cf = [cf_source] if cf_source is string else cf_source %}
+              <ul class="rm-source-list">
+              {% for c in _cf %}<li><code>{{ c }}</code></li>{% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          {% if sql_source %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Legacy SQL (supporting evidence)</span>
+              {% set _sql = [sql_source] if sql_source is string or sql_source is mapping else sql_source %}
+              <ul class="rm-source-list">
+              {% for s in _sql %}
+                <li>
+                  {% if s is mapping %}
+                    <code>{{ s.file }}{% if s.line %}:{{ s.line }}{% endif %}</code>
+                    {% if s.object %} — <code>{{ s.object }}</code>{% endif %}
+                    {% if s.note %} <em>({{ s.note }})</em>{% endif %}
+                  {% else %}
+                    <code>{{ s }}</code>
+                  {% endif %}
+                </li>
+              {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+        </div>
+      </dd>
+    {% endif %}
+    {% if source_conflict_note %}
+      <dt>Conflict Resolution</dt>
+      <dd class="rm-meta__desc">{{ source_conflict_note | markdown }}</dd>
+    {% endif %}
+    {% if tags %}
+      <dt>Tags</dt>
+      <dd>
+        {% set _tag_items = [tags] if tags is string else tags %}
+        {% for tag in _tag_items %}<span class="tag tag--reqtag">{{ tag }}</span>{% endfor %}
+      </dd>
+    {% endif %}
+  </dl>
+
+  {% include "partials/screens.html" %}
+
+  {% with ids_raw=feature, xref_type="feature", heading="Parent Feature" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with ids_raw=applications, xref_type="application", heading="Linked Applications" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with ids_raw=depends_on, xref_type="requirement", heading="Depends on" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="requirement", field="depends_on", heading="Required by" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="test_case", field="requirements", heading="Verified by Test Cases" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with ids_raw=page.meta.decisions|default([]), xref_type="decision", heading="Governed by Decisions" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% include "partials/coverage-section.html" %}
+
+  {% include "partials/change-history.html" %}
+</div>

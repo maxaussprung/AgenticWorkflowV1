@@ -1,0 +1,75 @@
+parameters:
+  - name: acrServiceConnection
+    type: string
+
+  - name: condition
+    type: string
+    default: "succeeded()"
+
+  - name: dockerfilePath
+    type: string
+    default: "./Dockerfile"
+
+  - name: dockerContextPath
+    type: string
+    default: "."
+
+  - name: dockerImageName
+    type: string
+    default: "$(defaultDockerImageName)"
+
+  - name: dockerImageTag
+    type: string
+    default: "$(Build.SourceVersion)"
+
+  - name: dockerBuildArgs
+    type: string
+    default: ""
+
+steps:
+  - script: |
+      echo "##[debug] Parameters:"
+      echo "##[debug] Condition: ${{ parameters.condition }}"
+      echo "##[debug] Service Connection: ${{ parameters.acrServiceConnection }}"
+      echo "##[debug] Dockerfile Path: ${{ parameters.dockerfilePath }}"
+      echo "##[debug] Docker Context Path: ${{ parameters.dockerContextPath }}"
+      echo "##[debug] Image Name: ${{ parameters.dockerImageName }}"
+      echo "##[debug] Image Tag: ${{ replace(parameters.dockerImageTag, '\n', ', ') }}"
+      echo "##[debug] Docker Build Args: ${{ parameters.dockerBuildArgs }}"
+    displayName: "Prep: Build and Push Docker Container"
+
+  - task: AzureCLI@2
+    condition: succeeded()
+    name: buildImage
+    displayName: Build Docker Image
+    inputs:
+      azureSubscription: ${{ parameters.acrServiceConnection }}
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        docker build --platform linux/amd64 -t "$(containerRegistryLoginServer)/${{ parameters.dockerImageName }}:latest" -f ${{ parameters.dockerFilePath }} ${{parameters.dockerBuildArgs}} ${{ parameters.dockerContextPath }}
+
+  - ${{ each tag in split(parameters.dockerImageTag, '\n') }}:
+      - ${{ if ne(tag, '') }}:
+          - task: AzureCLI@2
+            name: tagImage
+            condition: succeeded()
+            displayName: Tag Docker Image
+            inputs:
+              azureSubscription: ${{ parameters.acrServiceConnection }}
+              scriptType: pscore
+              scriptLocation: inlineScript
+              inlineScript: |
+                docker image tag "$(containerRegistryLoginServer)/${{ parameters.dockerImageName }}:latest" "$(containerRegistryLoginServer)/${{ parameters.dockerImageName }}:${{ tag }}"
+
+  - task: AzureCLI@2
+    condition: succeeded()
+    name: acrPush
+    displayName: Push Image to ACR
+    inputs:
+      azureSubscription: ${{ parameters.acrServiceConnection }}
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        Write-Output "$(containerRegistryLoginServer)/${{ parameters.dockerImageName }}"
+        docker image push --all-tags "$(containerRegistryLoginServer)/${{ parameters.dockerImageName }}"

@@ -1,0 +1,11 @@
+variables:
+  cachePath: "/home/AzDevOps/.local/share/pnpm/store/"
+  frontendPath: "src/frontend"
+  dev: "https://{project-name}-app.dev.{cluster-domain}/"
+  test: "https://{project-name}-app.test.{cluster-domain}/"
+  abn: "https://{project-name}-app.abn.{cluster-domain}/"
+  prod: "https://{project-name}-app.prod.{cluster-domain}/"
+  localhost: "http://localhost:3000"
+  e2e: "e2e"
+  systemIntegration: "si"
+  integration: "it"

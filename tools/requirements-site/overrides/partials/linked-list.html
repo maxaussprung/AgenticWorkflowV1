@@ -1,0 +1,40 @@
+{#- Render a heading + bullet list of cross-references for a list of IDs.
+    Caller supplies the inputs via {% with %}:
+        ids_raw:   the IDs — either a comma-separated string OR an iterable
+                   (YAML list). Both forms are accepted so the same partial
+                   covers visions/activities (string) and features (list).
+        xref_type: which xref bucket to look up in (e.g. "domain", "vision")
+        heading:   the section heading text shown above the list
+
+    Resolution happens at render time from the `xref` registry built once per
+    build by hooks/cross_refs.py — so a target's title change propagates here
+    on the next `mkdocs build`, no re-import needed. Unknown IDs render as
+    "<id> (unknown)" so missing references stay visible to a reviewer. -#}
+{% if ids_raw and ids_raw != 0 %}
+  {% set registry = (xref | default({})).get(xref_type, {}) %}
+  {% set ids = [] %}
+  {% if ids_raw is string %}
+    {% for chunk in ids_raw.split(",") %}
+      {% set fid = chunk.strip() %}
+      {% if fid %}{% set _ = ids.append(fid) %}{% endif %}
+    {% endfor %}
+  {% else %}
+    {% for raw in ids_raw %}
+      {% set fid = (raw | string).strip() %}
+      {% if fid %}{% set _ = ids.append(fid) %}{% endif %}
+    {% endfor %}
+  {% endif %}
+  {% if ids %}
+    <h2 class="rm-meta__sub">{{ heading }}</h2>
+    <ul class="rm-link-list">
+      {% for fid in ids %}
+        {% set entry = registry.get(fid) %}
+        {% if entry %}
+          <li><a href="{{ base_url }}/{{ entry.url }}">{{ fid }}{% if entry.title and entry.title != fid %} — {{ entry.title }}{% endif %}</a></li>
+        {% else %}
+          <li>{{ fid }} <em>(unknown)</em></li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endif %}

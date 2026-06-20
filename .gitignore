@@ -1,0 +1,121 @@
+# Build output
+bin/
+obj/
+**/[Bb]in/
+**/[Oo]bj/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# C# and .NET artifacts
+*.dll
+*.exe
+*.pdb
+*.cache
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+TestResult*/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+*.vsp
+*.vspx
+*.ncrunch*
+_NCrunch_*/
+BenchmarkDotNet.Artifacts/
+*.opencover.xml
+*.cobertura.xml
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+project.assets.json
+artifacts/
+
+# React / Node local dependencies and builds
+node_modules/
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+dist/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+.parcel-cache/
+.turbo/
+.eslintcache
+storybook-static/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python / MkDocs local tooling
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+tools/requirements-site/site/
+
+# Visual Studio
+.vs/
+*.rsuser
+
+# JetBrains Rider / IntelliJ
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+!.vscode/launch.json.example
+!.vscode/tasks.json.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Office lock/owner files (e.g. ~$Summary.xlsx) created while a doc is open
+~$*
+
+# Generated reports
+reports/test-results/*
+!reports/test-results/.gitkeep
+reports/evaluations/*
+!reports/evaluations/.gitkeep
+# Keep the illustrative template example (shows the evaluation/report format).
+!reports/evaluations/EVAL-EXAMPLE-001.md
+!reports/evaluations/azure-boards/
+!reports/evaluations/azure-boards/**
+!reports/evaluations/azure-wiki/
+!reports/evaluations/azure-wiki/**
+!reports/evaluations/product-analyses/
+!reports/evaluations/product-analyses/**
+.omo/*
+
+csharp/typesense-data/
+# Example: ignore any secondary/local copy of the legacy codebase kept outside the submodule.
+# /to_be_migrated_repo/{LEGACY-CODEBASE-DIR}-local/
+podman-build-secret-*
+/_site/
+/_deploy/

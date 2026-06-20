@@ -1,0 +1,7 @@
+apiVersion: v2
+name: {project-name}-typesense
+description: Helm chart for {PROJECT-NAME} Typesense
+maintainers:
+- name: {team-name}
+version: 1.0.0
+appVersion: "1.0.0"

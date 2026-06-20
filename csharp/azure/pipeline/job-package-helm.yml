@@ -1,0 +1,79 @@
+parameters:
+  # Name of the container registry to log in to.
+  - name: acrName
+    type: string
+
+  # Domain of the container registry to log in to.
+  - name: containerRegistryDomain
+    type: string
+    default: azurecr.io
+
+  # Path to helm chart in the registry. In most cases this should be set to the name of the tenant. Set to / if the chart should be pushed to root.
+  - name: registryRepositoryPath
+    type: string
+
+  # Name of the helm chart. Should not contain the chart context.
+  - name: helmChartName
+    type: string
+
+  # Path to the directory containing the helm chart to package.
+  - name: helmChartPath
+    type: string
+
+  # Version to use for the packaged helm chart.
+  - name: helmChartVersion
+    type: string
+
+  # Specifies the helm version to install on the agent.
+  - name: helmVersionToInstall
+    type: string
+    default: latest
+
+steps:
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/helm-installer-v1
+  - task: HelmInstaller@1
+    condition: succeeded()
+    displayName: Helm Installer
+    inputs:
+      helmVersionToInstall: ${{ parameters.helmVersionToInstall }}
+      installKubectl: false
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/bash-v3
+  # Before a helm chart can be uploaded to a registry, it needs to be packaged.
+  - task: Bash@3
+    condition: succeeded()
+    name: packagechart
+    displayName: Package Helm Chart
+    inputs:
+      workingDirectory: ${{ parameters.helmChartPath }}
+      targetType: "inline"
+      script: |
+        helm package ./ --version ${{ parameters.helmChartVersion }}
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2
+  # The next two steps publish the packaged helm chart as artifact to the pipeline.
+  # Not strictly necessary, but useful for debugging because the packaged chart can be downloaded from the pipeline.
+  - task: CopyFiles@2
+    condition: succeeded()
+    displayName: Copy Helm Chart Artifacts
+    inputs:
+      SourceFolder: ${{ parameters.helmChartPath }}
+      TargetFolder: $(Build.ArtifactStagingDirectory)/packaged-charts/${{ parameters.helmChartName }}
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-build-artifacts-v1
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Helm Chart Artifacts
+    condition: succeeded()
+    inputs:
+      PathtoPublish: $(Build.ArtifactStagingDirectory)/packaged-charts/${{ parameters.helmChartName }}
+      artifactName: ${{ parameters.helmChartName }}-chart
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/bash-v3
+  - task: Bash@3
+    condition: succeeded()
+    displayName: Push Helm Chart to ACR
+    inputs:
+      workingDirectory: $(Build.ArtifactStagingDirectory)/packaged-charts/${{ parameters.helmChartName }}
+      targetType: inline
+      script: |
+        helm push "${{ parameters.helmChartName }}-$(Build.BuildNumber).tgz" oci://${{ parameters.acrName }}.${{ parameters.containerRegistryDomain }}/${{ parameters.registryRepositoryPath }}

@@ -1,0 +1,202 @@
+{#- Per-product feature-effort report.
+
+    Iterates the `xref` registry for products and features (built by
+    hooks/cross_refs.py from page front matter). For each product, renders one
+    `<h2>` heading + a table of features with their Sprints, then summary
+    rows: subtotal, contingency (lower/upper), grand total (lower/upper).
+    Below the per-product blocks, a roll-up table totals every product with a
+    final grand-total row.
+
+    Contingency comes from `page.meta.contingency` on the calling page so
+    the percentages can be tuned without touching the partial:
+        contingency:
+          default: {lower: 10, upper: 30}
+          overrides:
+            PRODUCT-001: {lower: 25, upper: 50}
+            ...
+    Percentages are integers (e.g. 10 = 10 %).
+
+    Each product gets a "Low Contingency" or "High Contingency" badge depending
+    on whether it falls back to `default` or matches an entry in `overrides`.
+
+    Optional `priority_filter` on the calling page restricts the report to
+    products AND features matching that Priority value (e.g. `priority_filter: 1`
+    keeps only Priority-1 products and within them only Priority-1 features).
+    When unset, all products and features are included.
+-#}
+{% set products_all = (xref | default({})).get("product", {}) %}
+{% set features_all = (xref | default({})).get("feature", {}) %}
+{% set prio_filter = page.meta.priority_filter | default(none) %}
+
+{# Apply the optional priority filter. Comparing as int matches both
+   `Priority: 1` (yaml int) and any future string-typed entry. #}
+{% set products = {} %}
+{% for pid, pr in products_all.items() %}
+  {% if prio_filter is none or (pr.meta.get("Priority") | int(0)) == (prio_filter | int(0)) %}
+    {% set _ = products.update({pid: pr}) %}
+  {% endif %}
+{% endfor %}
+
+{# Group features by their `Product` front-matter value so each product table is
+   independent of the order features were imported. `Product` may be a single
+   ID (string) or a YAML list for cross-product features — such a feature is
+   counted under every product it belongs to. The same priority filter applies
+   inside each product. #}
+{% set features_by_product = {} %}
+{% for fid, f in features_all.items() %}
+  {% set pr_raw = f.meta.get("Product") %}
+  {% if pr_raw and (prio_filter is none or (f.meta.get("Priority") | int(0)) == (prio_filter | int(0))) %}
+    {% set pr_items = [pr_raw] if pr_raw is string else pr_raw %}
+    {% for pr_chunk in pr_items %}
+      {% set pr = (pr_chunk | string).strip() %}
+      {% if pr %}
+        {% if pr not in features_by_product %}
+          {% set _ = features_by_product.update({pr: []}) %}
+        {% endif %}
+        {% set _ = features_by_product[pr].append((fid, f)) %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+
+{% set cfg = page.meta.contingency | default({}) %}
+{% set default_c = cfg.get("default", {"lower": 10, "upper": 30}) %}
+{% set overrides = cfg.get("overrides", {}) %}
+
+{# First pass: pre-compute every product's numbers so the per-product detail
+   blocks and the bottom roll-up table both see the same values without
+   recomputing. #}
+{% set rows = [] %}
+{% for pid, product in products.items() %}
+  {% set product_features = features_by_product.get(pid, []) %}
+  {% set ns = namespace(subtotal=0) %}
+  {% for fid, f in product_features %}
+    {% set ns.subtotal = ns.subtotal + (f.meta.get("Sprints") | int(0)) %}
+  {% endfor %}
+  {% set is_high = pid in overrides %}
+  {% set c = overrides.get(pid, default_c) %}
+  {% set lower_pct = c.get("lower", default_c.lower) %}
+  {% set upper_pct = c.get("upper", default_c.upper) %}
+  {% set lower_cont = ns.subtotal * lower_pct / 100.0 %}
+  {% set upper_cont = ns.subtotal * upper_pct / 100.0 %}
+  {% set _ = rows.append({
+      "pid": pid,
+      "product": product,
+      "features": product_features,
+      "is_high": is_high,
+      "subtotal": ns.subtotal,
+      "lower_pct": lower_pct,
+      "upper_pct": upper_pct,
+      "lower_cont": lower_cont,
+      "upper_cont": upper_cont,
+      "total_lower": ns.subtotal + lower_cont,
+      "total_upper": ns.subtotal + upper_cont,
+  }) %}
+{% endfor %}
+
+<div class="md-typeset rm-estimation">
+  {% for r in rows %}
+    <h2 id="{{ r.pid | lower }}">
+      <a href="{{ base_url }}/{{ r.product.url }}">{{ r.pid }} — {{ r.product.title }}</a>
+    </h2>
+    <p>
+      {% set prio = r.product.meta.get("Priority") %}
+      {% if prio %}<span class="tag tag--priority-{{ prio }}">Priority {{ prio }}</span>{% endif %}
+      {% if r.is_high %}
+        <span class="tag tag--contingency-high">High Contingency</span>
+      {% else %}
+        <span class="tag tag--contingency-low">Low Contingency</span>
+      {% endif %}
+      <span class="rm-estimation__featcount">{{ r.features | length }} feature{% if r.features | length != 1 %}s{% endif %}</span>
+    </p>
+
+    <table class="rm-estimation__epic-table">
+      <colgroup>
+        <col class="rm-col-id">
+        <col class="rm-col-title">
+        <col class="rm-col-num">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Feature</th>
+          <th style="text-align:right">Sprints</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if r.features %}
+          {% for fid, f in r.features %}
+            <tr>
+              <td><code>{{ fid }}</code></td>
+              <td><a href="{{ base_url }}/{{ f.url }}">{{ f.title }}</a></td>
+              <td style="text-align:right">{{ f.meta.get("Sprints") | int(0) }}</td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="3"><em>No features linked to this product.</em></td></tr>
+        {% endif %}
+        <tr class="rm-estimation__subtotal">
+          <td colspan="2"><strong>Subtotal</strong></td>
+          <td style="text-align:right"><strong>{{ r.subtotal }}</strong></td>
+        </tr>
+        <tr>
+          <td colspan="2">Contingency (lower, {{ r.lower_pct }} %)</td>
+          <td style="text-align:right">{{ r.lower_cont | round(1) }}</td>
+        </tr>
+        <tr>
+          <td colspan="2">Contingency (upper, {{ r.upper_pct }} %)</td>
+          <td style="text-align:right">{{ r.upper_cont | round(1) }}</td>
+        </tr>
+        <tr class="rm-estimation__total">
+          <td colspan="2"><strong>Total (lower)</strong></td>
+          <td style="text-align:right"><strong>{{ r.total_lower | round(1) }}</strong></td>
+        </tr>
+        <tr class="rm-estimation__total">
+          <td colspan="2"><strong>Total (upper)</strong></td>
+          <td style="text-align:right"><strong>{{ r.total_upper | round(1) }}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  {% endfor %}
+
+  {# Roll-up across every product. Sums are computed from the raw (unrounded)
+     per-product totals so the grand total isn't off by accumulated rounding. #}
+  {% set tns = namespace(lower=0, upper=0) %}
+  {% for r in rows %}
+    {% set tns.lower = tns.lower + r.total_lower %}
+    {% set tns.upper = tns.upper + r.total_upper %}
+  {% endfor %}
+
+  <h2 id="all-products">All products</h2>
+  <table class="rm-estimation__rollup">
+    <colgroup>
+      <col class="rm-col-id">
+      <col class="rm-col-title">
+      <col class="rm-col-num">
+      <col class="rm-col-num">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Title</th>
+        <th style="text-align:right">Total (lower)</th>
+        <th style="text-align:right">Total (upper)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td><code>{{ r.pid }}</code></td>
+          <td><a href="{{ base_url }}/{{ r.product.url }}">{{ r.product.title }}</a></td>
+          <td style="text-align:right">{{ r.total_lower | round(1) }}</td>
+          <td style="text-align:right">{{ r.total_upper | round(1) }}</td>
+        </tr>
+      {% endfor %}
+      <tr class="rm-estimation__total">
+        <td colspan="2"><strong>Total</strong></td>
+        <td style="text-align:right"><strong>{{ tns.lower | round(1) }}</strong></td>
+        <td style="text-align:right"><strong>{{ tns.upper | round(1) }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</div>

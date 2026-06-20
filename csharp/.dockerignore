@@ -1,0 +1,14 @@
+# Local-dev build-context trim for the backend image (context root = csharp/).
+# Excludes build artifacts and frontend deps that the Dockerfile restores/builds
+# inside the container, so `docker build` does not stream hundreds of MB over the
+# WSL 9p mount. Does not affect image correctness.
+**/bin/
+**/obj/
+**/node_modules/
+**/.next/
+**/out/
+**/coverage/
+**/TestResults/
+typesense-data/
+**/*.user
+.git/

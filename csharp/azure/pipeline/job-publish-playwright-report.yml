@@ -1,0 +1,41 @@
+parameters:
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: testType
+    type: string
+    default: src/frontend
+
+  - name: stageDisplayName
+    type: string
+
+  - name: environment
+    type: string
+    default: local
+
+steps:
+  - task: PublishTestResults@2
+    displayName: Publish ${{parameters.stageDisplayName}} Results
+    condition: succeededOrFailed()
+    inputs:
+      testRunTitle: Frontend ${{parameters.stageDisplayName}}
+      testResultsFormat: "JUnit"
+      searchFolder: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}/test-results
+      testResultsFiles: test-results.xml
+
+  - task: CopyFiles@2
+    displayName: Copy ${{parameters.stageDisplayName}} Results
+    condition: succeededOrFailed()
+    inputs:
+      sourceFolder: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}
+      targetFolder: $(Build.ArtifactStagingDirectory)/playwright-report
+      contents: playwright-report/**
+
+  - task: PublishPipelineArtifact@1
+    displayName: "Publish HTML Playwright report"
+    condition: succeededOrFailed()
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/playwright-report
+      ArtifactName: "playwright-report-${{parameters.testType}}-${{ parameters.environment }}-$(System.JobId)"
+      publishLocation: "pipeline"

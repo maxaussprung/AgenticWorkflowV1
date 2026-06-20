@@ -1,0 +1,34 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+
+<div class="rm-card rm-card--activity md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">ACTIVITY</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+
+  {% with ids_raw=page.meta["Epic"]|default(""),
+          xref_type="epic",
+          heading="Epic" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with ids_raw=page.meta["Domain IDs"]|default(""),
+          xref_type="domain",
+          heading="Linked Domains" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with ids_raw=page.meta["Vision IDs"]|default(""),
+          xref_type="vision",
+          heading="Linked Visions" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="feature", field="Activity IDs", heading="Referenced by Features" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

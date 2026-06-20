@@ -1,0 +1,150 @@
+{# Product dashboard: left product navigation (each entry shows a small progress bar
+   + % done) and, for the selected product, its requirement tables split into
+   product-specific vs cross-cutting. Only the selected product is shown; columns are
+   sortable (javascripts/product-dashboard.js).
+   Mapping: Requirement.feature -> Feature.Product (len 1 = specific, else cross-cutting).
+   Status + Owner: from openspec/track.md only (req_impl_status / req_impl_owner) —
+   done -> done, in-progress/claimed -> in-progress, else open; owner from the
+   ledger Owner column. Requirement frontmatter signals (status / owner /
+   openspec_change / `in-progress` tag) are intentionally NOT used (can be stale). #}
+{% set products = (xref | default({})).get("product", {}) %}
+{% set features = (xref | default({})).get("feature", {}) %}
+{% set requirements = (xref | default({})).get("requirement", {}) %}
+{% set prio_labels = {"must": "Must", "should": "Should", "could": "Could", "wont": "Won't"} %}
+{% set tier_labels = {"gold": "Gold", "silver": "Silver", "bronze": "Bronze"} %}
+
+{% macro dstatus(m) %}{% set rstat = (req_impl_status | default({})).get(m.id) %}{% if rstat == "done" %}done{% elif rstat == "in-progress" %}in-progress{% else %}open{% endif %}{% endmacro %}
+
+{% macro minibar(label, done, prog, open) %}
+  {% set total = done + prog + open %}
+  <span class="rm-pd__track">
+    <span class="rm-pd__tracklabel">{{ label }}</span>
+    <span class="rm-pd__navbar" title="{{ done }} done · {{ prog }} in progress · {{ open }} open">
+      <span class="rm-pd__fill">
+        {% if done %}<span class="rm-pd__seg rm-pd__seg--done" style="width: {{ done / total * 100 }}%"></span>{% endif %}
+        {% if prog %}<span class="rm-pd__seg rm-pd__seg--prog" style="width: {{ prog / total * 100 }}%"></span>{% endif %}
+        {% if open %}<span class="rm-pd__seg rm-pd__seg--open" style="width: {{ open / total * 100 }}%"></span>{% endif %}
+      </span>
+    </span>
+    <span class="rm-pd__counts" title="{{ done }} done · {{ prog }} in progress · {{ open }} open"><span class="rm-pd__n rm-pd__n--done">{{ done }}</span><span class="rm-pd__sep">·</span><span class="rm-pd__n rm-pd__n--prog">{{ prog }}</span><span class="rm-pd__sep">·</span><span class="rm-pd__n rm-pd__n--open">{{ open }}</span></span>
+  </span>
+{% endmacro %}
+
+{% macro ptracker(label, rows) %}
+  {% set ns = namespace(done=0, prog=0, open=0) %}
+  {% for r in rows %}
+    {% set st = dstatus(r.meta) | trim %}
+    {% if st == "done" %}{% set ns.done = ns.done + 1 %}
+    {% elif st == "in-progress" %}{% set ns.prog = ns.prog + 1 %}
+    {% else %}{% set ns.open = ns.open + 1 %}{% endif %}
+  {% endfor %}
+  {% set total = rows | length %}
+  <div class="rm-pd__ptrack">
+    <div class="rm-pd__ptrack-head">
+      <span>{{ label }} ({{ total }})</span>
+      <span class="rm-pd__pct">{{ ((ns.done / total * 100) | round) if total else 0 }} % done</span>
+    </div>
+    <div class="rm-pd__pbar">
+      {% if ns.done %}<span class="rm-pd__seg rm-pd__seg--done" style="width: {{ ns.done / total * 100 }}%"></span>{% endif %}
+      {% if ns.prog %}<span class="rm-pd__seg rm-pd__seg--prog" style="width: {{ ns.prog / total * 100 }}%"></span>{% endif %}
+      {% if ns.open %}<span class="rm-pd__seg rm-pd__seg--open" style="width: {{ ns.open / total * 100 }}%"></span>{% endif %}
+    </div>
+    <div class="rm-pd__plegend">{{ ns.done }} done · {{ ns.prog }} in progress · {{ ns.open }} open</div>
+  </div>
+{% endmacro %}
+
+{% macro reqtable(rows) %}
+  {% if rows %}
+  <table>
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th><th>Source</th><th>Status</th><th>Owner</th></tr></thead>
+    <tbody>
+    {% for r in rows | sort(attribute="meta.id") %}
+      {% set m = r.meta %}
+      {% set st = dstatus(m) | trim %}
+      <tr>
+        <td><a href="{{ base_url }}/{{ r.url }}"><code>{{ m.id }}</code></a></td>
+        <td>{{ r.title }}</td>
+        <td>{% if m.priority %}<span class="tag tag--priority-{{ m.priority }}">{{ prio_labels.get(m.priority, m.priority) }}</span>{% endif %}</td>
+        <td>{% if m.source_tier %}<span class="tag tag--source-tier-{{ m.source_tier }}">{{ tier_labels.get(m.source_tier, m.source_tier) }}</span>{% endif %}</td>
+        <td>
+          {% if st == "done" %}<span class="tag tag--impl-done">Done</span>
+          {% elif st == "in-progress" %}<span class="tag tag--impl-in-progress">In Progress</span>
+          {% else %}<span class="tag tag--impl-open">Open</span>{% endif %}
+        </td>
+        <td>{{ (req_impl_owner | default({})).get(m.id) | default("—", true) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="rm-pd__empty"><em>None yet.</em></p>{% endif %}
+{% endmacro %}
+
+<div class="md-typeset rm-pd">
+  <nav class="rm-pd__nav">
+    <p class="rm-pd__nav-title">Products</p>
+    <ul>
+    {% for pid, p in products | dictsort %}
+      {% set ns = namespace(sd=0, sp=0, so=0, cd=0, cp=0, co=0) %}
+      {% for rid, r in requirements.items() %}
+        {% set feat = features.get(r.meta.feature) %}
+        {% if feat %}
+          {% set prods = feat.meta.Product %}
+          {% if prods is string %}{% set prods = prods.split(",") %}{% endif %}
+          {% set prod_ids = (prods | map("string") | map("trim") | list) if prods else [] %}
+          {% if pid in prod_ids %}
+            {% set st = dstatus(r.meta) | trim %}
+            {% set spec = prod_ids | length == 1 %}
+            {% if st == "done" %}{% if spec %}{% set ns.sd = ns.sd + 1 %}{% else %}{% set ns.cd = ns.cd + 1 %}{% endif %}
+            {% elif st == "in-progress" %}{% if spec %}{% set ns.sp = ns.sp + 1 %}{% else %}{% set ns.cp = ns.cp + 1 %}{% endif %}
+            {% else %}{% if spec %}{% set ns.so = ns.so + 1 %}{% else %}{% set ns.co = ns.co + 1 %}{% endif %}{% endif %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+      <li class="rm-pd__navitem">
+        <a href="#{{ pid | lower }}">
+          <span class="rm-pd__code">{{ p.meta.code | default(p.meta.id) }}</span>
+          <span class="rm-pd__navbody">
+            <span class="rm-pd__navname">{{ p.title }}</span>
+            {{ minibar("specific", ns.sd, ns.sp, ns.so) }}
+            {{ minibar("cross", ns.cd, ns.cp, ns.co) }}
+          </span>
+        </a>
+      </li>
+    {% endfor %}
+    </ul>
+  </nav>
+
+  <div class="rm-pd__main">
+  {% for pid, p in products | dictsort %}
+    {% set specific = [] %}
+    {% set shared = [] %}
+    {% for rid, r in requirements.items() %}
+      {% set feat = features.get(r.meta.feature) %}
+      {% if feat %}
+        {% set prods = feat.meta.Product %}
+        {% if prods is string %}{% set prods = prods.split(",") %}{% endif %}
+        {% set prod_ids = (prods | map("string") | map("trim") | list) if prods else [] %}
+        {% if pid in prod_ids %}
+          {% if prod_ids | length == 1 %}{% set _ = specific.append(r) %}
+          {% else %}{% set _ = shared.append(r) %}{% endif %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+
+    <section id="{{ pid | lower }}" class="rm-pd__product">
+      <h2>{{ p.meta.id }} — {{ p.title }}</h2>
+
+      <div class="rm-pd__ptrackers">
+        {{ ptracker("specific", specific) }}
+        {{ ptracker("cross", shared) }}
+      </div>
+
+      <h3>Product-specific <span class="rm-id">{{ specific | length }}</span></h3>
+      {{ reqtable(specific) }}
+
+      <h3>Cross-cutting <span class="rm-id">{{ shared | length }}</span></h3>
+      {{ reqtable(shared) }}
+    </section>
+  {% endfor %}
+  </div>
+</div>

@@ -1,0 +1,778 @@
+{% set products = (xref | default({})).get("product", {}) %}
+{% set features = (xref | default({})).get("feature", {}) %}
+{% set requirements = (xref | default({})).get("requirement", {}) %}
+
+<script>document.body.classList.add("requirement-map-page");</script>
+
+<div class="req-map" id="requirement-map-root">
+  <div class="req-map__toolbar">
+    <label>
+      Product
+      <select id="req-map-product">
+        <option value="all">All products</option>
+        {% for product_id, product in products.items() %}
+          <option value="{{ product_id }}">{{ product_id }} - {{ product.title }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Search
+      <input id="req-map-search" type="search" placeholder="Requirement, feature, product..." />
+    </label>
+    <label class="req-map__toggle">
+      <input id="req-map-independent" type="checkbox" />
+      Include independent requirements
+    </label>
+  </div>
+
+  <div class="req-map__stats" id="req-map-stats"></div>
+
+  <div class="req-map__legend">
+    <span><i class="req-map__line req-map__line--trace"></i>product / feature trace</span>
+    <span><i class="req-map__line"></i>depends_on edge</span>
+    <span><i class="req-map__swatch req-map__swatch--product"></i>product</span>
+    <span><i class="req-map__swatch req-map__swatch--feature"></i>feature</span>
+    <span><i class="req-map__swatch req-map__swatch--must"></i>must</span>
+    <span><i class="req-map__swatch req-map__swatch--should"></i>should</span>
+    <span><i class="req-map__swatch req-map__swatch--could"></i>could</span>
+    <span><i class="req-map__swatch req-map__swatch--nfr"></i>non-functional border</span>
+    <span><i class="req-map__swatch req-map__swatch--cs-done"></i>C# done</span>
+    <span><i class="req-map__swatch req-map__swatch--cs-partial"></i>C# partial</span>
+    <span><i class="req-map__swatch req-map__swatch--cs-not-started"></i>C# not-started</span>
+  </div>
+
+  <div class="req-map__phases" id="req-map-phases"></div>
+
+  <div class="req-map__layout">
+    <div class="req-map__graph-wrap">
+      <svg id="req-map-graph" role="img" aria-label="Requirement dependency graph"></svg>
+    </div>
+    <aside class="req-map__detail" id="req-map-detail">
+      <h2>Selected node</h2>
+      <p>Select a product, feature, or requirement to inspect the chain and dependencies.</p>
+    </aside>
+    <section class="req-map__parallel" id="req-map-parallel"></section>
+    <section class="req-map__gantt" id="req-map-gantt"></section>
+  </div>
+</div>
+
+<script id="req-map-data" type="application/json">
+{
+  "requirements": [
+    {% for req_id, req in requirements.items() %}
+      {% set feature_id = req.meta.feature | default("") %}
+      {% set feature = features.get(feature_id) %}
+      {% set raw_products = req.meta.product | default(req.meta.Product | default(feature.meta.Product if feature else [])) %}
+      {% set req_products = [] %}
+      {% if raw_products is string %}
+        {% for chunk in raw_products.split(",") %}
+          {% set token = chunk.strip() %}
+          {% if token %}{% set _ = req_products.append(token) %}{% endif %}
+        {% endfor %}
+      {% else %}
+        {% for raw in raw_products %}
+          {% set token = (raw | string).strip() %}
+          {% if token %}{% set _ = req_products.append(token) %}{% endif %}
+        {% endfor %}
+      {% endif %}
+      {% set raw_depends = req.meta.depends_on | default([]) %}
+      {% set depends_on = [] %}
+      {% if raw_depends is string %}
+        {% for chunk in raw_depends.split(",") %}
+          {% set token = chunk.strip() %}
+          {% if token %}{% set _ = depends_on.append(token) %}{% endif %}
+        {% endfor %}
+      {% else %}
+        {% for raw in raw_depends %}
+          {% set token = (raw | string).strip() %}
+          {% if token %}{% set _ = depends_on.append(token) %}{% endif %}
+        {% endfor %}
+      {% endif %}
+      {
+        "id": {{ req_id | tojson }},
+        "title": {{ req.title | tojson }},
+        "url": {{ req.url | tojson }},
+        "feature": {{ feature_id | tojson }},
+        "featureTitle": {{ (feature.title if feature else "") | tojson }},
+        "products": {{ req_products | tojson }},
+        "priority": {{ (req.meta.priority | default("")) | tojson }},
+        "kind": {{ (req.meta.kind | default("")) | tojson }},
+        "effort": {{ (req.meta.effort | default(req.meta.estimate | default(req.meta.story_points | default(req.meta.points | default(""))))) | tojson }},
+        "azureStories": {{ (req.meta.azure_story_ids | default([])) | tojson }},
+        "azureStoryPoints": {{ (req.meta.azure_story_points | default("")) | tojson }},
+        "azureStateSummary": {{ (req.meta.azure_state_summary | default("")) | tojson }},
+        "dependsOn": {{ depends_on | tojson }}
+      }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  "features": {
+    {% for feature_id, feature in features.items() %}
+      {% set raw_feature_products = feature.meta.Product | default(feature.meta.product | default([])) %}
+      {% set feature_products = [] %}
+      {% if raw_feature_products is string %}
+        {% for chunk in raw_feature_products.split(",") %}
+          {% set token = chunk.strip() %}
+          {% if token %}{% set _ = feature_products.append(token) %}{% endif %}
+        {% endfor %}
+      {% else %}
+        {% for raw in raw_feature_products %}
+          {% set token = (raw | string).strip() %}
+          {% if token %}{% set _ = feature_products.append(token) %}{% endif %}
+        {% endfor %}
+      {% endif %}
+      {{ feature_id | tojson }}: {"title": {{ feature.title | tojson }}, "url": {{ feature.url | tojson }}, "products": {{ feature_products | tojson }}, "csharpStatus": {{ (feature.meta.csharp_status | default("")) | tojson }}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  },
+  "products": {
+    {% for product_id, product in products.items() %}
+      {{ product_id | tojson }}: {"title": {{ product.title | tojson }}, "url": {{ product.url | tojson }}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  },
+  "baseUrl": {{ base_url | tojson }}
+}
+</script>
+
+<script>
+(function () {
+  const root = document.getElementById("requirement-map-root");
+  if (!root) return;
+
+  const data = JSON.parse(document.getElementById("req-map-data").textContent);
+  const requirements = new Map(data.requirements.map(req => [req.id, req]));
+  const features = new Map(Object.entries(data.features || {}).map(([id, feature]) => [id, { id, ...feature }]));
+  const products = new Map(Object.entries(data.products || {}).map(([id, product]) => [id, { id, ...product }]));
+  const graph = document.getElementById("req-map-graph");
+  const productSelect = document.getElementById("req-map-product");
+  const searchInput = document.getElementById("req-map-search");
+  const showIndependent = document.getElementById("req-map-independent");
+  const statsEl = document.getElementById("req-map-stats");
+  const detailEl = document.getElementById("req-map-detail");
+  const nodeW = 204;
+  const nodeH = 62;
+  const gapX = 30;
+  const gapY = 20;
+  let selectedNode = null;
+
+  requirements.forEach(req => {
+    req.requiredBy = [];
+    req.dependsOn = (req.dependsOn || []).filter(dep => requirements.has(dep));
+  });
+  requirements.forEach(req => {
+    req.dependsOn.forEach(dep => requirements.get(dep).requiredBy.push(req.id));
+  });
+  requirements.forEach(req => {
+    const feature = features.get(req.feature);
+    if ((!req.products || req.products.length === 0) && feature) {
+      req.products = feature.products || [];
+    }
+  });
+
+  function pageUrl(url) {
+    return `${data.baseUrl}/${url}`;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;"
+    }[ch]));
+  }
+
+  function searchable(req) {
+    return [
+      req.id,
+      req.title,
+      req.feature,
+      req.featureTitle,
+      req.priority,
+      req.kind,
+      ...(req.products || []),
+      ...(req.products || []).map(productId => data.products[productId]?.title || ""),
+      ...(req.dependsOn || []),
+      ...(req.requiredBy || [])
+    ].join(" ").toLowerCase();
+  }
+
+  function visibleRequirements() {
+    const selectedProduct = productSelect.value || "all";
+    const query = (searchInput.value || "").trim().toLowerCase();
+    const includeIndependent = showIndependent.checked;
+
+    return [...requirements.values()].filter(req => {
+      const isConnected = req.dependsOn.length > 0 || req.requiredBy.length > 0;
+      if (!includeIndependent && !isConnected) return false;
+      if (selectedProduct !== "all" && !(req.products || []).includes(selectedProduct)) return false;
+      if (query && !searchable(req).includes(query)) return false;
+      return true;
+    });
+  }
+
+  function visibleGraph() {
+    const reqs = visibleRequirements();
+    const selectedProduct = productSelect.value || "all";
+    const productIds = new Set();
+    const featureIds = new Set();
+
+    reqs.forEach(req => {
+      if (req.feature) featureIds.add(req.feature);
+      (req.products || []).forEach(productId => {
+        if (selectedProduct === "all" || productId === selectedProduct) productIds.add(productId);
+      });
+    });
+
+    if (selectedProduct !== "all") productIds.add(selectedProduct);
+    if (selectedProduct === "all" && productIds.size === 0) products.forEach((_product, id) => productIds.add(id));
+
+    return {
+      productNodes: [...productIds].map(id => products.get(id)).filter(Boolean),
+      featureNodes: [...featureIds].map(id => features.get(id)).filter(Boolean),
+      requirementNodes: reqs
+    };
+  }
+
+  function dependencyDepth(req, memo = new Map(), visiting = new Set()) {
+    if (memo.has(req.id)) return memo.get(req.id);
+    if (visiting.has(req.id)) return 0;
+    visiting.add(req.id);
+    const upstream = req.dependsOn
+      .map(dep => requirements.get(dep))
+      .filter(Boolean)
+      .map(dep => dependencyDepth(dep, memo, visiting));
+    visiting.delete(req.id);
+    const depth = upstream.length ? Math.max(...upstream) + 1 : 0;
+    memo.set(req.id, depth);
+    return depth;
+  }
+
+  function layout(productNodes, featureNodes, reqs) {
+    const visibleIds = new Set(reqs.map(req => req.id));
+    const memo = new Map();
+    const columns = new Map([[0, productNodes], [1, featureNodes]]);
+    reqs.forEach(req => {
+      let depth = dependencyDepth(req, memo) + 2;
+      while ([...req.dependsOn, ...req.requiredBy].some(id => visibleIds.has(id) && requirements.has(id) && dependencyDepth(requirements.get(id), memo) === depth && id !== req.id)) {
+        depth += 1;
+      }
+      if (!columns.has(depth)) columns.set(depth, []);
+      columns.get(depth).push(req);
+    });
+
+    const positions = new Map();
+    [...columns.keys()].sort((a, b) => a - b).forEach(depth => {
+      columns.get(depth)
+        .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
+        .forEach((node, index) => {
+          positions.set(node.id, {
+            x: 24 + depth * (nodeW + gapX),
+            y: 28 + index * (nodeH + gapY),
+            depth
+          });
+        });
+    });
+    return positions;
+  }
+
+  function phaseMap(reqs) {
+    const visibleIds = new Set(reqs.map(req => req.id));
+    const memo = new Map();
+    const phases = new Map();
+    reqs.forEach(req => {
+      const phase = dependencyDepth(req, memo);
+      if (!phases.has(phase)) phases.set(phase, []);
+      phases.get(phase).push(req);
+    });
+    phases.forEach(items => {
+      items.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+    });
+    return phases;
+  }
+
+  function priorityClass(priority) {
+    return ["must", "should", "could", "wont"].includes(priority) ? priority : "none";
+  }
+
+  function estimatedEffort(req) {
+    const raw = String(req.effort ?? "").trim().toLowerCase();
+    const numeric = Number(raw.replace(",", "."));
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    if (["xs", "small", "s"].includes(raw)) return 1;
+    if (["m", "medium"].includes(raw)) return 2;
+    if (["l", "large"].includes(raw)) return 3;
+    if (["xl", "xlarge"].includes(raw)) return 5;
+    const priority = priorityClass(req.priority);
+    if (priority === "must") return 3;
+    if (priority === "should") return 2;
+    return 1;
+  }
+
+  function wrapLines(value, maxChars, maxLines = 2) {
+    const words = String(value || "").split(/\s+/).filter(Boolean);
+    const lines = [];
+    let current = "";
+    words.forEach(word => {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length <= maxChars) {
+        current = next;
+        return;
+      }
+      if (current) lines.push(current);
+      current = word;
+    });
+    if (current) lines.push(current);
+    if (lines.length > maxLines) {
+      lines.length = maxLines;
+      lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, Math.max(0, maxChars - 3))}...`;
+    }
+    return lines.map(line => line.length > maxChars ? `${line.slice(0, Math.max(0, maxChars - 3))}...` : line);
+  }
+
+  function nodeKey(type, id) {
+    return `${type}:${id}`;
+  }
+
+  function isSelected(type, id) {
+    return selectedNode && selectedNode.type === type && selectedNode.id === id;
+  }
+
+  function selectedKeys() {
+    if (!selectedNode) return null;
+    const keys = new Set([nodeKey(selectedNode.type, selectedNode.id)]);
+    if (selectedNode.type === "product") {
+      features.forEach(feature => {
+        if (!(feature.products || []).includes(selectedNode.id)) return;
+        keys.add(nodeKey("feature", feature.id));
+        requirements.forEach(req => {
+          if (req.feature === feature.id && (req.products || []).includes(selectedNode.id)) {
+            keys.add(nodeKey("requirement", req.id));
+          }
+        });
+      });
+    } else if (selectedNode.type === "feature") {
+      const feature = features.get(selectedNode.id);
+      (feature?.products || []).forEach(productId => keys.add(nodeKey("product", productId)));
+      requirements.forEach(req => {
+        if (req.feature === selectedNode.id) keys.add(nodeKey("requirement", req.id));
+      });
+    } else if (selectedNode.type === "requirement") {
+      const req = requirements.get(selectedNode.id);
+      if (req) {
+        keys.add(nodeKey("feature", req.feature));
+        (req.products || []).forEach(productId => keys.add(nodeKey("product", productId)));
+        [...req.dependsOn, ...req.requiredBy].forEach(reqId => keys.add(nodeKey("requirement", reqId)));
+      }
+    }
+    return keys;
+  }
+
+  function renderStats(productNodes, featureNodes, reqs) {
+    const edges = reqs.reduce((sum, req) => sum + req.dependsOn.filter(dep => requirements.has(dep)).length, 0);
+    const connected = reqs.filter(req => req.dependsOn.length || req.requiredBy.length).length;
+    const selectedProduct = productSelect.value === "all" ? "All" : productSelect.value;
+    statsEl.innerHTML = [
+      ["Products", productNodes.length],
+      ["Features", featureNodes.length],
+      ["Requirements", reqs.length],
+      ["Dependency edges", edges],
+      ["Connected reqs", connected],
+      ["Product", selectedProduct]
+    ].map(([label, value]) => `<div class="req-map__stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`).join("");
+  }
+
+  function renderPhases(reqs) {
+    const phases = phaseMap(reqs);
+    const sorted = [...phases.keys()].sort((a, b) => a - b);
+    if (!sorted.length) {
+      document.getElementById("req-map-phases").innerHTML = "";
+      return;
+    }
+    document.getElementById("req-map-phases").innerHTML = `
+      <h2>Implementation order</h2>
+      <div class="req-map__phase-list">
+        ${sorted.map(phase => {
+          const items = phases.get(phase);
+          const title = phase === 0 ? "Phase 0 - Start here" : `Phase ${phase}`;
+          const sample = items.slice(0, 4).map(req => req.id).join(", ");
+          const more = items.length > 4 ? ` +${items.length - 4} more` : "";
+          return `
+            <button class="req-map__phase" type="button" data-phase="${phase}">
+              <strong>${escapeHtml(title)}</strong>
+              <span>${items.length} requirements</span>
+              <em>${escapeHtml(sample + more)}</em>
+            </button>`;
+        }).join("")}
+      </div>`;
+    document.querySelectorAll(".req-map__phase").forEach(button => {
+      button.addEventListener("click", () => {
+        const phase = Number(button.dataset.phase);
+        const first = phases.get(phase)?.[0];
+        if (!first) return;
+        selectedNode = { type: "requirement", id: first.id };
+        renderDetail(selectedNode);
+        renderGraph();
+      });
+    });
+  }
+
+  function renderParallelWork(reqs) {
+    const phases = phaseMap(reqs);
+    const sorted = [...phases.keys()].sort((a, b) => a - b);
+    const parallelEl = document.getElementById("req-map-parallel");
+    const priorities = [
+      { id: "must", label: "Must" },
+      { id: "should", label: "Should" },
+      { id: "could", label: "Could" }
+    ];
+    if (!sorted.length) {
+      parallelEl.innerHTML = "";
+      return;
+    }
+    parallelEl.innerHTML = `
+      <h2>Parallel work timeline</h2>
+      <p>Phases run top to bottom. Within each phase, pick Must first, then Should, then Could; requirements in the same lane are parallel candidates after earlier phases are complete.</p>
+      <div class="req-map__parallel-timeline">
+      ${sorted.map((phase, index) => {
+        const items = phases.get(phase);
+        const title = phase === 0 ? "Phase 0 - Start here" : `Phase ${phase}`;
+        return `
+          <section class="req-map__parallel-phase">
+            <header>
+              <span class="req-map__parallel-step">${index + 1}</span>
+              <div>
+                <h3>${escapeHtml(title)}</h3>
+                <p>${phase === 0 ? "No visible prerequisites" : "After earlier phases"}</p>
+              </div>
+              <strong>${items.length}</strong>
+            </header>
+            <div class="req-map__parallel-lanes">
+              ${priorities.map(priority => {
+                const laneItems = items.filter(req => priorityClass(req.priority) === priority.id);
+                return `
+                  <section class="req-map__parallel-lane req-map__parallel-lane--${priority.id}">
+                    <header>
+                      <h4>${priority.label}</h4>
+                      <span>${laneItems.length}</span>
+                    </header>
+                    <div class="req-map__parallel-list">
+                      ${laneItems.length ? laneItems.map(req => {
+                        const feature = features.get(req.feature);
+                        const productText = (req.products || []).slice(0, 3).join(", ");
+                        const moreProducts = (req.products || []).length > 3 ? ` +${req.products.length - 3}` : "";
+                        return `
+                          <button class="req-map__parallel-item req-map__parallel-item--${priorityClass(req.priority)}" type="button" data-req="${escapeHtml(req.id)}">
+                            <strong>${escapeHtml(req.id)}</strong>
+                            <small>${escapeHtml(req.title)}</small>
+                            <i>${escapeHtml(feature ? req.feature : "No feature")} - ${escapeHtml(productText + moreProducts || "No product")}</i>
+                          </button>`;
+                      }).join("") : "<p class=\"req-map__parallel-empty\">No candidates</p>"}
+                    </div>
+                  </section>`;
+              }).join("")}
+            </div>
+          </section>`;
+      }).join("")}
+      </div>`;
+    parallelEl.querySelectorAll(".req-map__parallel-item").forEach(button => {
+      button.addEventListener("click", () => {
+        selectedNode = { type: "requirement", id: button.dataset.req };
+        renderDetail(selectedNode);
+        renderGraph();
+      });
+    });
+  }
+
+  function renderGanttWork(reqs) {
+    const phases = phaseMap(reqs);
+    const sorted = [...phases.keys()].sort((a, b) => a - b);
+    const ganttEl = document.getElementById("req-map-gantt");
+    const priorities = [
+      { id: "must", label: "Must" },
+      { id: "should", label: "Should" },
+      { id: "could", label: "Could" }
+    ];
+    if (!sorted.length) {
+      ganttEl.innerHTML = "";
+      return;
+    }
+    const phaseDurations = sorted.map(phase => Math.max(...phases.get(phase).map(estimatedEffort), 1));
+    const phaseStarts = [];
+    phaseDurations.reduce((sum, duration) => {
+      phaseStarts.push(sum);
+      return sum + duration;
+    }, 0);
+    const total = phaseDurations.reduce((sum, duration) => sum + duration, 0) || 1;
+    ganttEl.innerHTML = `
+      <h2>Estimated Gantt view</h2>
+      <p>Bars show estimated effort units. Real metadata fields are used when present; otherwise priority fallback is used: Must=3 est., Should=2 est., Could=1 est.</p>
+      <div class="req-map__gantt-scale">
+        <span class="req-map__gantt-scale-label">Phase</span>
+        <div class="req-map__gantt-scale-track">
+          ${sorted.map((phase, index) => {
+            const left = (phaseStarts[index] / total) * 100;
+            const width = (phaseDurations[index] / total) * 100;
+            return `<span style="left:${left}%;width:${width}%;">${escapeHtml(phase === 0 ? "Phase 0" : `Phase ${phase}`)}</span>`;
+          }).join("")}
+        </div>
+      </div>
+      <div class="req-map__gantt-rows">
+        ${sorted.map((phase, index) => {
+          const left = (phaseStarts[index] / total) * 100;
+          const items = phases.get(phase);
+          return `
+            <section class="req-map__gantt-phase">
+              <header>${escapeHtml(phase === 0 ? "Phase 0 - Start here" : `Phase ${phase}`)}</header>
+              ${priorities.map(priority => {
+                const laneItems = items.filter(req => priorityClass(req.priority) === priority.id);
+                return `
+                  <div class="req-map__gantt-priority-row req-map__gantt-priority-row--${priority.id}">
+                    <span>${priority.label}</span>
+                    <div class="req-map__gantt-bars">
+                      ${laneItems.map(req => {
+                        const effort = estimatedEffort(req);
+                        const width = Math.max((effort / total) * 100, 4);
+                        return `
+                          <button class="req-map__gantt-bar req-map__gantt-bar--${priorityClass(req.priority)}" type="button" data-req="${escapeHtml(req.id)}" style="left:${left}%;width:${width}%;">
+                            <strong>${escapeHtml(req.id)}</strong>
+                            <span>${escapeHtml(effort)} est.</span>
+                          </button>`;
+                      }).join("")}
+                    </div>
+                  </div>`;
+              }).join("")}
+            </section>`;
+        }).join("")}
+      </div>`;
+    ganttEl.querySelectorAll(".req-map__gantt-bar").forEach(button => {
+      button.addEventListener("click", () => {
+        selectedNode = { type: "requirement", id: button.dataset.req };
+        renderDetail(selectedNode);
+        renderGraph();
+      });
+    });
+  }
+
+  function renderDetail(node) {
+    if (!node) {
+      detailEl.innerHTML = "<h2>Selected node</h2><p>Select a product, feature, or requirement to inspect the implementation chain and dependencies.</p>";
+      return;
+    }
+    if (node.type === "product") {
+      const product = products.get(node.id);
+      const productFeatures = [...features.values()].filter(feature => (feature.products || []).includes(node.id));
+      const productReqs = [...requirements.values()].filter(req => (req.products || []).includes(node.id));
+      detailEl.innerHTML = `
+        <h2><a href="${pageUrl(product.url)}">${escapeHtml(node.id)}</a></h2>
+        <p>${escapeHtml(product.title)}</p>
+        <dl>
+          <dt>Features</dt><dd>${productFeatures.length}</dd>
+          <dt>Requirements</dt><dd>${productReqs.length}</dd>
+          <dt>Action</dt><dd>Product selection focuses the graph on this product.</dd>
+        </dl>`;
+      return;
+    }
+    if (node.type === "feature") {
+      const feature = features.get(node.id);
+      const featureReqs = [...requirements.values()].filter(req => req.feature === node.id);
+      const featureProducts = (feature.products || []).map(productId => {
+        const product = products.get(productId);
+        return product ? `<a href="${pageUrl(product.url)}">${escapeHtml(productId)}</a>` : escapeHtml(productId);
+      }).join(", ") || "<span class=\"muted\">None</span>";
+      detailEl.innerHTML = `
+        <h2><a href="${pageUrl(feature.url)}">${escapeHtml(node.id)}</a></h2>
+        <p>${escapeHtml(feature.title)}</p>
+        <dl>
+          <dt>Products</dt><dd>${featureProducts}</dd>
+          <dt>Requirements</dt><dd>${featureReqs.length}</dd>
+        </dl>`;
+      return;
+    }
+    const id = node.id;
+    const req = requirements.get(id);
+    if (!req) {
+      renderDetail(null);
+      return;
+    }
+    const products = (req.products || []).map(productId => {
+      const product = data.products[productId];
+      return product ? `<a href="${pageUrl(product.url)}">${escapeHtml(productId)}</a>` : escapeHtml(productId);
+    }).join(", ") || "<span class=\"muted\">None</span>";
+    const dependsOn = req.dependsOn.map(id => `<a href="${pageUrl(requirements.get(id).url)}">${escapeHtml(id)}</a>`).join(", ") || "<span class=\"muted\">None</span>";
+    const requiredBy = req.requiredBy.map(id => `<a href="${pageUrl(requirements.get(id).url)}">${escapeHtml(id)}</a>`).join(", ") || "<span class=\"muted\">None</span>";
+    const feature = data.features[req.feature];
+    const phase = dependencyDepth(req);
+    detailEl.innerHTML = `
+      <h2><a href="${pageUrl(req.url)}">${escapeHtml(req.id)}</a></h2>
+      <p>${escapeHtml(req.title)}</p>
+      <dl>
+        <dt>Feature</dt><dd>${feature ? `<a href="${pageUrl(feature.url)}">${escapeHtml(req.feature)}</a> ${escapeHtml(feature.title)}` : escapeHtml(req.feature || "None")}</dd>
+        <dt>Products</dt><dd>${products}</dd>
+        <dt>Phase</dt><dd>${phase === 0 ? "Phase 0 - Start here" : `Phase ${phase}`}</dd>
+        <dt>Priority</dt><dd>${escapeHtml(req.priority || "n/a")}</dd>
+        <dt>Kind</dt><dd>${escapeHtml(req.kind || "n/a")}</dd>
+        {# Replace the Azure DevOps org/project URL prefix with your project's. #}
+        <dt>Azure stories</dt><dd>${(req.azureStories || []).length ? req.azureStories.map(id => `<a href="https://dev.azure.com/{AZURE-DEVOPS-ORG}/{AZURE-DEVOPS-PROJECT}/_workitems/edit/${escapeHtml(id)}">${escapeHtml(id)}</a>`).join(", ") : "<span class=\"muted\">None mapped</span>"}</dd>
+        <dt>Story points</dt><dd>${escapeHtml(req.azureStoryPoints || req.effort || "not estimated")}</dd>
+        <dt>Azure states</dt><dd>${escapeHtml(req.azureStateSummary || "n/a")}</dd>
+        <dt>Depends on</dt><dd>${dependsOn}</dd>
+        <dt>Required by</dt><dd>${requiredBy}</dd>
+      </dl>`;
+  }
+
+  function addEdge(from, to, type, fromKey, toKey, highlightKeys) {
+    const x1 = from.x + nodeW;
+    const y1 = from.y + nodeH / 2;
+    const x2 = to.x;
+    const y2 = to.y + nodeH / 2;
+    const curve = Math.max(36, (x2 - x1) / 2);
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}`);
+    path.setAttribute("marker-end", type === "dependency" ? "url(#req-map-arrow)" : "url(#req-map-trace-arrow)");
+    path.classList.add("req-map__edge", `req-map__edge--${type}`);
+    if (highlightKeys) {
+      if (highlightKeys.has(fromKey) && highlightKeys.has(toKey)) {
+        path.classList.add("is-highlight");
+      } else {
+        path.classList.add("is-muted");
+      }
+    }
+    graph.appendChild(path);
+  }
+
+  function addNode(type, item, pos, highlightKeys) {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("transform", `translate(${pos.x},${pos.y})`);
+    g.classList.add("req-map__node", `req-map__node--${type}`);
+    if (type === "requirement") {
+      g.classList.add(`req-map__node--${priorityClass(item.priority)}`);
+      if (item.kind === "non-functional") g.classList.add("req-map__node--nfr");
+    }
+    if (type === "feature" && item.csharpStatus) {
+      g.classList.add("req-map__node--cs-" + item.csharpStatus);
+    }
+    if (isSelected(type, item.id)) g.classList.add("is-selected");
+    if (highlightKeys && !highlightKeys.has(nodeKey(type, item.id))) g.classList.add("is-muted");
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("role", "button");
+    const select = () => {
+      selectedNode = isSelected(type, item.id) ? null : { type, id: item.id };
+      if (type === "product") productSelect.value = item.id;
+      renderDetail(selectedNode);
+      renderGraph();
+    };
+    g.addEventListener("click", select);
+    g.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        select();
+      }
+    });
+
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("width", nodeW);
+    rect.setAttribute("height", nodeH);
+    rect.setAttribute("rx", "6");
+    const idText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    idText.setAttribute("x", "10");
+    idText.setAttribute("y", "18");
+    idText.classList.add("req-map__node-id");
+    idText.textContent = item.id;
+    const title = item.title || "";
+    const titleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    titleText.setAttribute("x", "10");
+    titleText.setAttribute("y", "36");
+    titleText.classList.add("req-map__node-title");
+    wrapLines(title, type === "requirement" ? 25 : 23).forEach((line, index) => {
+      const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+      tspan.setAttribute("x", "10");
+      tspan.setAttribute("dy", index === 0 ? "0" : "14");
+      tspan.textContent = line;
+      titleText.appendChild(tspan);
+    });
+    const badge = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    badge.setAttribute("x", nodeW - 10);
+    badge.setAttribute("y", "18");
+    badge.setAttribute("text-anchor", "end");
+    badge.classList.add("req-map__node-badge");
+    badge.textContent = type === "product" ? "product" : type === "feature" ? "feature" : (item.priority || "");
+    g.append(rect, idText, titleText, badge);
+    graph.appendChild(g);
+  }
+
+  function renderGraph() {
+    const { productNodes, featureNodes, requirementNodes: reqs } = visibleGraph();
+    const highlightKeys = selectedKeys();
+    const visibleIds = new Set(reqs.map(req => req.id));
+    const positions = layout(productNodes, featureNodes, reqs);
+    const maxX = Math.max(820, ...[...positions.values()].map(pos => pos.x + nodeW + 32));
+    const maxY = Math.max(480, ...[...positions.values()].map(pos => pos.y + nodeH + 32));
+
+    graph.setAttribute("viewBox", `0 0 ${maxX} ${maxY}`);
+    graph.setAttribute("width", maxX);
+    graph.setAttribute("height", maxY);
+    graph.innerHTML = `
+      <defs>
+        <marker id="req-map-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#c94242"></path>
+        </marker>
+        <marker id="req-map-trace-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#7591ad"></path>
+        </marker>
+      </defs>`;
+
+    [...new Set([...positions.values()].map(pos => pos.depth))]
+      .sort((a, b) => a - b)
+      .forEach(depth => {
+        const label = depth === 0 ? "Products" : depth === 1 ? "Features" : `Phase ${depth - 2}`;
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", 24 + depth * (nodeW + gapX));
+        text.setAttribute("y", "16");
+        text.classList.add("req-map__phase-label");
+        text.textContent = label;
+        graph.appendChild(text);
+      });
+
+    productNodes.forEach(product => {
+      featureNodes.forEach(feature => {
+        if (!(feature.products || []).includes(product.id)) return;
+        const from = positions.get(product.id);
+        const to = positions.get(feature.id);
+        if (from && to) addEdge(from, to, "trace", nodeKey("product", product.id), nodeKey("feature", feature.id), highlightKeys);
+      });
+    });
+    featureNodes.forEach(feature => {
+      reqs.forEach(req => {
+        if (req.feature !== feature.id) return;
+        const from = positions.get(feature.id);
+        const to = positions.get(req.id);
+        if (from && to) addEdge(from, to, "trace", nodeKey("feature", feature.id), nodeKey("requirement", req.id), highlightKeys);
+      });
+    });
+    reqs.forEach(req => {
+      req.dependsOn.forEach(dep => {
+        if (!visibleIds.has(dep)) return;
+        const from = positions.get(dep);
+        const to = positions.get(req.id);
+        if (!from || !to) return;
+        addEdge(from, to, "dependency", nodeKey("requirement", dep), nodeKey("requirement", req.id), highlightKeys);
+      });
+    });
+
+    productNodes.forEach(product => addNode("product", product, positions.get(product.id), highlightKeys));
+    featureNodes.forEach(feature => addNode("feature", feature, positions.get(feature.id), highlightKeys));
+    reqs.forEach(req => addNode("requirement", req, positions.get(req.id), highlightKeys));
+
+    renderStats(productNodes, featureNodes, reqs);
+    renderPhases(reqs);
+    renderParallelWork(reqs);
+    renderGanttWork(reqs);
+  }
+
+  productSelect.addEventListener("change", () => { selectedNode = null; renderDetail(null); renderGraph(); });
+  searchInput.addEventListener("input", () => { selectedNode = null; renderDetail(null); renderGraph(); });
+  showIndependent.addEventListener("change", () => { selectedNode = null; renderDetail(null); renderGraph(); });
+  renderDetail(null);
+  renderGraph();
+})();
+</script>

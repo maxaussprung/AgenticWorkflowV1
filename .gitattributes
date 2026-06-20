@@ -1,0 +1,22 @@
+# Normalize line endings so Windows/macOS/Linux devs and agents see consistent diffs.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Treat common binary assets as binary (no diff/merge munging).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.xlsx binary
+*.pptx binary
+
+# NOTE: large binaries under docs/requirements/ are currently committed raw. Migrating them
+# to git-LFS is a separate task (this file only affects how *future* files are handled).

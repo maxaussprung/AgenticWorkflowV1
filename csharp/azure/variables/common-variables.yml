@@ -1,0 +1,14 @@
+variables:
+  AcrName: {CONTAINER-REGISTRY}  # Replace with your Azure Container Registry name
+  AcrServiceConnection: {SERVICE-CONNECTION}-dev  # Replace with your ACR service connection
+  BuildConfiguration: Release
+  DevTeamObjectId: {AZURE-AD-GROUP-OBJECT-ID}  # Object ID of your dev team AAD group
+  DevTeamGroupName: {TEAM-AAD-GROUP-NAME}
+  IsDevelopBranch: $[eq(variables['Build.SourceBranch'], 'refs/heads/develop')]
+  IsFeatureBranch: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/feature/')]
+  IsMainBranch: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
+  IsPullRequest: $[eq(variables['Build.Reason'], 'PullRequest')]
+  KubernetesTenant: {kubernetes-tenant}  # Your Kubernetes tenant/namespace prefix
+  KubernetesNamespace: {kubernetes-tenant}-api
+  ResourceGroupLocation: West Europe
+  ResourceGroupName: rg-{project-name}

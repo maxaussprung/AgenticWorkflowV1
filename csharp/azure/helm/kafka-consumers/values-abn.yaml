@@ -1,0 +1,26 @@
+environment: abn
+
+deployment:
+  # Number of replicas to run for the deployment.
+  replicas: 1
+
+container:
+  # Resource requests and limits for the container.
+  resources:
+    # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    limits:
+      cpu: 2000m # 2 phusical or virtual cores
+      memory: 2000Mi # 2 Gigabytes
+    requests:
+      cpu: 1000m
+      memory: 1000Mi
+
+managedIdentity:
+  # Client ID of the managed identity used to authenticate to azure resources.
+  # For demo purposes this is a static value, in a real world scenario the recommendation is to
+  # deploy the identity with an azure resource deployment and pass the client id as a parameter to helm.
+  clientId: '{MANAGED-IDENTITY-CLIENT-ID-ABN}'  # Replace with your managed identity client ID for abn
+
+appSettings:
+  AppConfiguration:
+    Endpoint: 'https://{project-name}-app-configuration-abn-{suffix}.azconfig.io'  # Replace with your App Configuration endpoint

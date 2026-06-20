@@ -1,0 +1,34 @@
+{# Renders the authoritative legacy screen(s) for a page's `screens:` citation.
+   Each entry: {source: SRC-{SPEC-DOCUMENT-ID}|SRC-{SCREEN-SOURCE-ID}, section: "<id>",
+   figures: [<indices>] (optional — pick specific figures), note: "..."}.
+   Images resolve against the `screen_images` global (built in cross_refs.py from
+   the screen-image indexes); only images synced into assets/screens/** render. #}
+{% set screens = page.meta.screens | default([]) %}
+{% if screens %}
+  {% set _screens = [screens] if screens is mapping else screens %}
+  <div class="rm-screens md-typeset">
+    <h3 class="rm-screens__title">Legacy screen (source of truth)</h3>
+    {% for sc in _screens %}
+      {% set _doc = (xref.get('source-document', {})).get(sc.source) %}
+      {% set _imgs = (screen_images.get(sc.source, {})).get(sc.section, []) %}
+      {% set _figs = sc.figures | default([]) %}
+      <figure class="rm-screen">
+        {% set _shown = namespace(n=0) %}
+        {% for im in _imgs %}
+          {% if not _figs or im.index in _figs %}
+            {% set _shown.n = _shown.n + 1 %}
+            <img class="rm-screen__img" loading="lazy"
+                 src="{{ base_url }}/{{ im.asset }}"
+                 alt="{{ sc.source }} §{{ sc.section }} — legacy screen (page {{ im.page }})">
+          {% endif %}
+        {% endfor %}
+        <figcaption class="rm-screen__cap">
+          {% if _doc %}<a href="{{ base_url }}/{{ _doc.url }}">{{ sc.source }}</a>{% else %}{{ sc.source }}{% endif %}
+          §{{ sc.section }} — legacy screen
+          {% if sc.note %}· {{ sc.note }}{% endif %}
+          {% if _shown.n == 0 %}<em>(image not yet synced — run build_screen_index.py sync-assets)</em>{% endif %}
+        </figcaption>
+      </figure>
+    {% endfor %}
+  </div>
+{% endif %}

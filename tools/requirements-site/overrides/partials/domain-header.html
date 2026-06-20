@@ -1,0 +1,28 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+
+<div class="rm-card rm-card--domain md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">DOMAIN</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+
+  {% with target_id=id, xref_type="vision", field="Domain IDs", heading="Referenced by Visions" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="epic", field="Domain IDs", heading="Referenced by Epics" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="activity", field="Domain IDs", heading="Referenced by Activities" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="feature", field="Domain IDs", heading="Referenced by Features" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

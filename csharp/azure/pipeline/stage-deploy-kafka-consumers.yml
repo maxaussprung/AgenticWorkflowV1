@@ -1,0 +1,72 @@
+parameters:
+  - name: deploymentServiceConnection
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: stageName
+    type: string
+
+  - name: acrName
+    type: string
+
+  - name: acrServiceConnection
+    type: string
+
+  - name: subscriptionId
+    type: string
+
+  - name: variableGroup
+    type: string
+
+stages:
+  - stage: ${{ parameters.stageName }}
+    displayName: Deployment in '${{ parameters.stageName }}'
+    dependsOn:
+      - build
+    condition: succeeded()
+    variables:
+      - group: ${{ parameters.variableGroup }}
+      - template: ../variables/common-variables.yml
+      - template: ../variables/variables-${{ parameters.stageName }}.yml
+    jobs:
+      - template: job-deploy-kafka-consumers-infrastructure.yml
+        parameters:
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          stageName: ${{ parameters.stageName }}
+          subscriptionId: ${{ parameters.subscriptionId }}
+
+      - template: job-create-federated-credentials.yml
+        parameters:
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          kubernetesCluster: ${{ variables.KubernetesCluster }}
+          kubernetesClusterIssuerUrl: ${{ variables.KubernetesClusterIssuerUrl }}
+          kubernetesClusterResourceGroup: ${{ variables.KubernetesClusterResourceGroup }}
+          kubernetesClusterSubscription: ${{ variables.KubernetesClusterSubscription }}
+          kubernetesNamespace: ${{ variables.KubernetesNamespace }}-kafka-consumers
+          credentialSeekers:
+            - namespace: ${{ variables.KubernetesTenant }}-kafka-consumers
+              serviceAccount: {project-name}-kafka-consumers-sa
+          resourceGroup: ${{ variables.ResourceGroupName }}
+          stageName: ${{ parameters.stageName }}
+          subscriptionName: ${{ variables.SubscriptionName }}
+          previousStageName: deploy_azure_infrastructure
+          managedIdentityName: ${{ variables.ManagedIdentityName }}
+
+      - template: job-deploy-kafka-consumers-to-kubernetes.yml
+        parameters:
+          artifactName: {project-name}-kafka-consumers-chart
+          acrName: ${{ parameters.acrName }}
+          acrServiceConnection: ${{ parameters.acrServiceConnection }}
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          helmChartName: {project-name}-kafka-consumers
+          kubernetesCluster: ${{ variables.KubernetesCluster }}
+          kubernetesClusterResourceGroup: ${{ variables.KubernetesClusterResourceGroup }}
+          kubernetesClusterSubscription: ${{ variables.KubernetesClusterSubscription }}
+          kubernetesNamespace: ${{ variables.KubernetesTenant }}-kafka-consumers
+          kubernetesTenant: ${{ variables.KubernetesTenant }}
+          stageName: ${{ parameters.stageName }}

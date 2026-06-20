@@ -1,0 +1,10 @@
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ include "release.fullname" . }}-server
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "release.fullname" . }}
+  port: {{ .Values.container.port }}

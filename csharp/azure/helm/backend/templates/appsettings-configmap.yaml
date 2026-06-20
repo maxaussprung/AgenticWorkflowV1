@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "release.fullname" . }}-appsettings-cm
+  namespace: {{ .Release.Namespace }}
+data:
+  appsettings.json: |
+    {{- .Values.appSettings | toPrettyJson | nindent 4 }}

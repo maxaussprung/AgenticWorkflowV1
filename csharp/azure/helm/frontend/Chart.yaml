@@ -1,0 +1,7 @@
+apiVersion: v2
+name: {project-name}-app  # Replace {project-name} with your actual project name
+description: Helm chart for {PROJECT-NAME} APP
+maintainers:
+- name: {team-name}
+version: 1.0.0
+appVersion: "1.0.0"

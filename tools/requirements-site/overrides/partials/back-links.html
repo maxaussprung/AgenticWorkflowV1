@@ -1,0 +1,50 @@
+{#- Render a heading + bullet list of back-references: pages of `xref_type` whose
+    `meta[field]` mentions `target_id`.
+
+    Caller supplies via {% with %}:
+        target_id:  the ID to search for (e.g. "D001", "EPIC001", "ACT001")
+        xref_type:  which xref bucket to scan (e.g. "vision", "feature", "activity")
+        field:      the front-matter field to inspect (e.g. "Domain IDs", "Epic", "Activity IDs")
+        heading:    section heading text
+
+    The field value may be:
+      - a comma-separated string  (e.g. "D001, D006, D015")
+      - a YAML list               (e.g. ["ACT001", "ACT003"])
+      - a plain string            (e.g. "EPIC001")
+
+    Omits the section entirely when no referencing pages exist, so missing
+    types (e.g. features not yet imported) cause no visual noise. -#}
+{% set registry = (xref | default({})).get(xref_type, {}) %}
+{% set matches = [] %}
+{% for entry_id, entry in registry.items() %}
+  {%- if field in entry.meta -%}
+    {%- set field_val = entry.meta[field] -%}
+    {%- if field_val and field_val != 0 -%}
+      {#- Normalise to a list of stripped tokens -#}
+      {%- if field_val is string -%}
+        {%- set tokens = [] -%}
+        {%- for chunk in field_val.split(",") -%}
+          {%- set tok = chunk.strip() -%}
+          {%- if tok -%}{%- set _ = tokens.append(tok) -%}{%- endif -%}
+        {%- endfor -%}
+      {%- else -%}
+        {%- set tokens = [] -%}
+        {%- for raw in field_val -%}
+          {%- set tok = (raw | string).strip() -%}
+          {%- if tok -%}{%- set _ = tokens.append(tok) -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+      {%- if target_id in tokens -%}
+        {%- set _ = matches.append(entry) -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{% endfor %}
+{% if matches %}
+  <h2 class="rm-meta__sub">{{ heading }}</h2>
+  <ul class="rm-link-list">
+    {% for entry in matches %}
+      <li><a href="{{ base_url }}/{{ entry.url }}">{{ entry.meta.id }}{% if entry.title and entry.title != entry.meta.id %} — {{ entry.title }}{% endif %}</a></li>
+    {% endfor %}
+  </ul>
+{% endif %}

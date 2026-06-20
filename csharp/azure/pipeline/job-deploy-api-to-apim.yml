@@ -1,0 +1,164 @@
+parameters:
+  # Not used anymore, but kept for backwards compatibility
+  - name: apiMgmtStageName
+    type: string
+    default: 'DevTest'
+    values:
+      - 'DevTest'
+      - 'AbnProd'
+
+  # Deploy to internal APIM if true / to external APIM if false
+  - name: apiMgmtInternal
+    type: boolean
+    default: true
+
+  # Id of the API in APIM
+  - name: apiMgmtApiId
+    type: string
+    default: ''
+
+  # URL where the API definition document can be downloaded (not only for Swagger APIs)
+  - name: swaggerUrl
+    type: string
+    default: ''
+
+  # Type of the API
+  - name: apiType
+    type: string
+    default: 'OpenApi'
+    values:
+      - 'OpenApi'
+      - 'GraphQl'
+
+  # URL of the backend service to be stored in APIM
+  - name: backendServiceUrl
+    type: string
+    default: ''
+
+  # Service connection to use for the deployment
+  - name: serviceConnection
+    type: string
+
+  - name: accessToken
+    type: string
+    default: ''
+
+  - name: environment
+    type: string
+
+jobs:
+- deployment: deploy_api_to_apim
+  displayName: Deploy API to APIM
+  condition: succeeded()
+  environment:  ${{ parameters.environment }}
+  dependsOn: deploy_api_to_kubernetes
+  strategy:
+    runOnce:
+      # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs?view=azure-devops#descriptions-of-lifecycle-hooks
+      deploy:
+        steps:
+        - checkout: none
+        - download: none
+        - script: |
+           echo "##[debug] Parameters:"
+           echo "##[debug]   ApiMgmt Internal: ${{parameters.apiMgmtInternal}}"
+           echo "##[debug]   ApiMgmt Api Id: ${{parameters.apiMgmtApiId}}"
+           echo "##[debug]   Swagger Url: ${{parameters.swaggerUrl}}"
+           echo "##[debug]   Api Type: ${{parameters.apiType}}"
+           echo "##[debug]   Backend Service Url: ${{parameters.backendServiceUrl}}"
+           echo "##[debug]   Service Connection: ${{parameters.serviceConnection}}"
+          displayName: "Prep: Deploy API Definition to APIM"
+
+        - task: AzureCLI@2
+          condition: succeeded()
+          displayName: Deploy API Definition to APIM
+          inputs:
+            azureSubscription: ${{parameters.serviceConnection}}
+            scriptType: 'pscore'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              Function ImportSwaggerToApim {
+                  param(
+                      [Parameter(Mandatory)]
+                      [string]
+                      $ApiId,
+
+                      [Parameter(Mandatory)]
+                      [string]
+                      $SwaggerUrl,
+
+                      [Parameter()]
+                      [ValidateSet("OpenApi", "GraphQl")]
+                      [string]
+                      $ApiType = "OpenApi",
+
+                      [Parameter()]
+                      [bool]
+                      $DeployInternalApim = $false, # If false external APIM is deployed, if true internal
+
+                      [Parameter()]
+                      [string]
+                      $BackendServiceUrl = "",
+
+                      [Parameter()]
+                      [string]
+                      $AccessToken = $env:APIMDEPLOYMENT_ACCESSTOKEN # access token should be already set into this variable be in AzureDevops (see other bat file)
+                  )
+
+                  # Check if SwaggerUrl has https:// prefix
+                  if (-not $SwaggerUrl.StartsWith("https://")) {
+                      Write-Host "WARNING: SwaggerUrl does not have 'https://' prefix."
+                  }
+
+                  # prepare arguments
+
+                  $uri = "https://api.{client-name}.{APIM-HOST}/az/apim/UpdateApiFromUrl"
+
+                  if ($DeployInternalApim -eq $true) {
+                      $apiManagementInstanceName = "APIMgmt-Global-internal"
+                  }
+                  else {
+                      $apiManagementInstanceName = "APIMgmt-Global-external"
+                  }
+
+                  if ([string]::IsNullOrEmpty($accessToken))
+                  {
+                      Write-Host "No access token provided. Getting access token from Azure CLI."
+                      $accessToken = (az account get-access-token --resource api://azureautomation --output tsv --query accessToken)
+                  }
+
+                  $bodyParams = @{ ApiManagementInstanceName = $apiManagementInstanceName; ApiId = $ApiId; OpenApiUrl = $SwaggerUrl; ApiType = $ApiType; }
+                  if ($BackendServiceUrl -ne "") {
+                      $bodyParams.Add("BackendServiceUrl", $BackendServiceUrl)
+                  }
+                  $headers = @{ Authorization = "Bearer $accessToken" }
+
+                  # Convert the body parameters to JSON and log the JSON body
+                  $jsonBody = $bodyParams | ConvertTo-Json
+                  Write-Host "JSON Body:"
+                  Write-Host $jsonBody
+
+                  try {
+                      # call apim deployment API to deploy OpenAPI definition
+                      Write-Host "Sending PUT request to $uri"
+                      $response = Invoke-WebRequest -Uri $uri -Method PUT -Body $jsonBody -Headers $headers -UseBasicParsing -ContentType "application/json"
+                  }
+                  catch [System.Net.WebException] {
+                      if ($null -eq $_.Exception.Response) {
+                          Write-Host "Error: $_"
+                      }
+                      else {
+                          Write-Host "Status code: $($_.Exception.Response.StatusCode)"
+                          $streamReader = [System.IO.StreamReader]::new($_.Exception.Response.GetResponseStream())
+                          $errResp = $streamReader.ReadToEnd()
+                          $streamReader.Close()
+                          Write-Host "Response: $errResp"
+                      }
+
+                      throw
+                  }
+
+                  $response
+              }
+
+              ImportSwaggerToApim -ApiId "${{parameters.apiMgmtApiId}}" -SwaggerUrl "${{parameters.swaggerUrl}}" -ApiType ${{parameters.apiType}} -DeployInternalApim $${{parameters.apiMgmtInternal}} -BackendServiceUrl "${{parameters.backendServiceUrl}}" -AccessToken "${{parameters.accessToken}}"

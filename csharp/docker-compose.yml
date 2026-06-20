@@ -1,0 +1,76 @@
+name: {project-name}
+services:
+  ui:
+    image: ${DOCKER_REGISTRY-}{project-name}-ui  # TODO: replace {project-name} with your project name
+    container_name: {project-name}_ui
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile.dev
+      args:
+        PAT: ${PAT}
+    env_file:
+      - ./src/frontend/.env.docker
+    ports:
+      - 3000:3000
+    depends_on:
+      - api
+
+  api:
+    image: ${DOCKER_REGISTRY-}{project-name}-api  # TODO: replace {project-name} with your project name
+    container_name: {project-name}_api
+    build:
+      context: .
+      dockerfile: src/backend/{ClientName}.{ProjectName}.API/Dockerfile  # TODO: replace {ClientName}.{ProjectName} with your solution name
+    environment:
+      - ASPNETCORE_ENVIRONMENT=SystemIntegration
+      - ASPNETCORE_URLS=http://*:8080;https://*:8081
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=${PROJECT_NAME_API_CERTIFICATE_PASSWORD}  # TODO: set PROJECT_NAME_API_CERTIFICATE_PASSWORD env var
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+      - ConnectionStrings__{ProjectName}Db=${PROJECT_NAME_DB_CONNECTION_STRING}  # TODO: set PROJECT_NAME_DB_CONNECTION_STRING env var
+      - Swagger__ServerUrls__0=https://localhost:5001
+      - Typesense__Nodes__0__Host=typesense
+      - Typesense__Nodes__0__Port=8108
+      - Typesense__ApiKey=typesense-api-key
+      - AddressDomain__ApiUrl=http://wiremock:8080
+      - WorkerHost__Enabled=true
+    ports:
+      - 5000:8080
+      - 5001:8081
+    volumes:
+      - ~/.aspnet/https:/https:ro
+    depends_on:
+      - mssql
+      - typesense
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: {project-name}_api_database
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Strong_password_123!
+      - MSSQL_PID=Developer
+    ports:
+      - 1433:1433
+
+  typesense:
+    image: typesense/typesense:28.0
+    container_name: {project-name}_typesense
+    environment:
+      - TYPESENSE_API_KEY=typesense-api-key
+      - TYPESENSE_DATA_DIR=/data
+      - TYPESENSE_PORT=8108
+      - TYPESENSE_ENABLE_CORS=true
+    ports:
+      - 8108:8108
+    volumes:
+      - ./typesense-data:/data
+
+  wiremock:
+     image: wiremock/wiremock:latest
+     container_name: {project-name}_wiremock_standalone
+     ports:
+       - 8083:8080
+     volumes:
+        - ./src/frontend/tests/wiremockSetup:/home/wiremock

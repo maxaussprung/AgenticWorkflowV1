@@ -1,0 +1,68 @@
+# NOTE: This filename contains the {project-name} placeholder. The setup-repo-structure skill
+# renames it to Dockerfile.<your-project>-ui (and updates the references in start-docker.sh /
+# start-podman.sh) when you replace {project-name}.
+# syntax=docker/dockerfile:1.4
+FROM node:18.19.1-alpine AS base
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN npm set strict-ssl false
+RUN npm install -g pnpm@8.9.2
+
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml ./
+
+RUN --mount=type=secret,id=ado_pat \
+  AUTH="$(base64 < /run/secrets/ado_pat | tr -d '\n')" && \
+  { \
+    echo "registry=https://registry.npmjs.org/"; \
+    echo "@{client-scope}:registry=https://pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/registry/"; \
+    echo "//pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/registry/:always-auth=true"; \
+    echo "//pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/registry/:username=local"; \
+    echo "//pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/registry/:_password=$AUTH"; \
+    echo "//pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/registry/:email=local@{client-domain}"; \
+    echo "//pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/:username=local"; \
+    echo "//pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/:_password=$AUTH"; \
+    echo "//pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{FEED-NAME}/npm/:email=local@{client-domain}"; \
+  } > .npmrc && \
+  pnpm install && \
+  rm -f .npmrc
+
+FROM base AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+COPY .env.docker .env.local
+
+RUN pnpm build
+RUN rm -f .npmrc
+
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=development
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]

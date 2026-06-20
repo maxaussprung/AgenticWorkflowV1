@@ -1,0 +1,226 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set product = page.meta.Product | default("") %}
+{% set system = page.meta.System | default("") %}
+{% set size = page.meta.Size | default("") %}
+{% set priority = page.meta.Priority | default(0) %}
+{% set sprints = page.meta.Sprints | default(0) %}
+{% set accountable = page.meta.Accountable | default([]) %}
+{% set supported = page.meta.Supported | default([]) %}
+{% set estimation_notes = page.meta["Estimation Notes"] | default("") %}
+{% set kind = page.meta.kind | default("") %}
+{% set nfr_category = page.meta.nfr_category | default("") %}
+{% set tags = page.meta.tags | default([]) %}
+{% set phase = page.meta.Phase | default("") %}
+{% set impl_status = page.meta.implementation_status | default("") %}
+{% set csharp_status = page.meta.csharp_status | default("") %}
+{% set implementation_work_item = page.meta.implementation_work_item | default("") %}
+{% set source = page.meta.source | default("") %}
+{% set source_tier = page.meta.source_tier | default("") %}
+{% set azure_story_ids = page.meta.azure_story_ids | default([]) %}
+{% set cf_source = page.meta.cf_source | default([]) %}
+{% set sql_source = page.meta.sql_source | default([]) %}
+{% set source_conflict_note = page.meta.source_conflict_note | default("") %}
+{# Application registry for resolving System / Accountable / Supported names
+   to a link when the name matches an imported application. Names that don't
+   match render as plain text and surface on the "Unknown applications" page. #}
+{% set apps = (xref | default({})).get("application", {}) %}
+{# Legacy hand-authored fields — kept defensive in case a feature is ever
+   manually authored with the older Owner/Status/MoSCoW priority schema. #}
+{% set legacy_owner = page.meta.owner | default("") %}
+{% set legacy_status = page.meta.status | default("") %}
+{% set legacy_priority = page.meta.priority | default("") %}
+
+<div class="rm-card rm-card--feature md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">FEATURE</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+
+  {% if priority or sprints or size or system or accountable or supported
+        or estimation_notes or kind or nfr_category or tags or phase or impl_status
+        or csharp_status or implementation_work_item
+        or source or source_tier or azure_story_ids or cf_source or sql_source or source_conflict_note
+        or legacy_owner or legacy_status or legacy_priority %}
+  <dl class="rm-meta">
+    {% if kind %}<dt>Kind</dt><dd><span class="tag tag--kind-{{ kind }}">{{ kind }}</span>{% if nfr_category %} <span class="tag tag--nfr">{{ nfr_category }}</span>{% endif %}</dd>{% endif %}
+    {% if phase %}<dt>Phase</dt><dd><span class="tag tag--phase">Phase {{ phase }}</span></dd>{% endif %}
+    {% if impl_status %}<dt>Implementation</dt><dd><span class="tag tag--implstatus tag--implstatus-{{ impl_status }}">{{ impl_status }}</span></dd>{% endif %}
+    {% if csharp_status %}<dt>C# build</dt><dd><span class="tag tag--csharpstatus tag--csharpstatus-{{ csharp_status }}">{{ csharp_status }}</span></dd>{% endif %}
+    {# Replace the Azure DevOps org/project URL prefix below with your project's. #}
+    {% if implementation_work_item %}<dt>Implementation ticket</dt><dd><a href="https://dev.azure.com/{AZURE-DEVOPS-ORG}/{AZURE-DEVOPS-PROJECT}/_workitems/edit/{{ implementation_work_item }}">Azure&nbsp;#{{ implementation_work_item }}</a></dd>{% endif %}
+    {% if source_tier %}<dt>Source Tier</dt><dd><span class="tag tag--source-tier-{{ source_tier }}">{{ source_tier | upper }}</span></dd>{% endif %}
+    {% if priority %}<dt>Priority</dt><dd><span class="tag tag--priority-{{ priority }}">Priority {{ priority }}</span></dd>{% endif %}
+    {% if sprints %}<dt>Effort</dt><dd>{{ sprints }} sprint{% if sprints != 1 %}s{% endif %}</dd>{% endif %}
+    {% if size %}<dt>Estimate</dt><dd><span class="tag tag--size">{{ size }}</span></dd>{% endif %}
+    {% if tags %}
+      <dt>Tags</dt>
+      <dd>
+        {% set _tag_items = [tags] if tags is string else tags %}
+        {% for t in _tag_items %}<span class="tag tag--reqtag">{{ t }}</span>{% endfor %}
+      </dd>
+    {% endif %}
+    {% if source or azure_story_ids or cf_source or sql_source %}
+      <dt>Sources</dt>
+      <dd>
+        {# Rendered in priority order Azure > PFH > CF so the derivation trail is explicit. #}
+        <div class="rm-sources">
+          {% if azure_story_ids %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Azure (gold)</span>
+              {% set _az = [azure_story_ids] if azure_story_ids is not iterable or azure_story_ids is string or azure_story_ids is mapping else azure_story_ids %}
+              {% for sid in _az %}<span class="rm-azure-id">#{{ sid }}</span>{% endfor %}
+            </div>
+          {% endif %}
+          {% if source %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Spec (silver)</span>
+              {% if source is string %}
+                {{ source }}
+              {% else %}
+                {% set _src_items = [source] if source is mapping else source %}
+                <ul class="rm-source-list">
+                {% for s in _src_items %}
+                  <li>
+                    {% if s is mapping %}
+                      {% set _doc = (xref.get('source-document', {})).get(s.document) %}
+                      {% if _doc %}<a href="{{ base_url }}/{{ _doc.url }}">{{ s.document }}</a>{% else %}{{ s.document }}{% endif %}
+                      {% if s.section %} — {{ s.section }}{% endif %}
+                      {% if s.note %} <em>({{ s.note }})</em>{% endif %}
+                    {% else %}
+                      {{ s }}
+                    {% endif %}
+                  </li>
+                {% endfor %}
+                </ul>
+              {% endif %}
+            </div>
+          {% endif %}
+          {% if cf_source %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Legacy source (bronze)</span>
+              {% set _cf = [cf_source] if cf_source is string else cf_source %}
+              <ul class="rm-source-list">
+              {% for c in _cf %}<li><code>{{ c }}</code></li>{% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+          {% if sql_source %}
+            <div class="rm-sources__group">
+              <span class="rm-sources__label">Legacy SQL (supporting evidence)</span>
+              {% set _sql = [sql_source] if sql_source is string or sql_source is mapping else sql_source %}
+              <ul class="rm-source-list">
+              {% for s in _sql %}
+                <li>
+                  {% if s is mapping %}
+                    <code>{{ s.file }}{% if s.line %}:{{ s.line }}{% endif %}</code>
+                    {% if s.object %} — <code>{{ s.object }}</code>{% endif %}
+                    {% if s.note %} <em>({{ s.note }})</em>{% endif %}
+                  {% else %}
+                    <code>{{ s }}</code>
+                  {% endif %}
+                </li>
+              {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+        </div>
+      </dd>
+    {% endif %}
+    {% if source_conflict_note %}
+      <dt>Conflict Resolution</dt>
+      <dd class="rm-meta__desc">{{ source_conflict_note | markdown }}</dd>
+    {% endif %}
+    {% if system %}
+      <dt>System</dt>
+      <dd>
+        {# System may be a comma-separated list (e.g. "ATLAS, VDE") — split
+           and resolve each name individually so each known app becomes its
+           own link. -#}
+        {% set _sys_items = [] %}
+        {% if system is string %}
+          {% for chunk in system.split(",") %}
+            {% set _t = chunk.strip() %}
+            {% if _t %}{% set _ = _sys_items.append(_t) %}{% endif %}
+          {% endfor %}
+        {% else %}
+          {% for raw in system %}
+            {% set _t = (raw | string).strip() %}
+            {% if _t %}{% set _ = _sys_items.append(_t) %}{% endif %}
+          {% endfor %}
+        {% endif %}
+        {% for name in _sys_items -%}
+          {% set _app = apps.get(name) %}
+          {% if _app %}<a href="{{ base_url }}/{{ _app.url }}">{{ name }}</a>{% else %}{{ name }}{% endif %}
+          {%- if not loop.last %}, {% endif %}
+        {%- endfor %}
+      </dd>
+    {% endif %}
+    {% if accountable %}
+      <dt>Accountable</dt>
+      <dd>
+        <ul class="rm-people-list">
+          {% set _acc_items = [accountable] if accountable is string else accountable %}
+          {% for person in _acc_items %}
+            {% set _name = (person | string).strip() %}
+            {% set _app = apps.get(_name) %}
+            {% if _app %}
+              <li><a href="{{ base_url }}/{{ _app.url }}">{{ person }}</a></li>
+            {% else %}
+              <li>{{ person }}</li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </dd>
+    {% endif %}
+    {% if supported %}
+      <dt>Supported</dt>
+      <dd>
+        <ul class="rm-people-list">
+          {% set _sup_items = [supported] if supported is string else supported %}
+          {% for person in _sup_items %}
+            {% set _name = (person | string).strip() %}
+            {% set _app = apps.get(_name) %}
+            {% if _app %}
+              <li><a href="{{ base_url }}/{{ _app.url }}">{{ person }}</a></li>
+            {% else %}
+              <li>{{ person }}</li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </dd>
+    {% endif %}
+    {% if estimation_notes %}<dt>Estimation Notes</dt><dd class="rm-meta__desc">{{ estimation_notes }}</dd>{% endif %}
+    {% if legacy_owner %}<dt>Owner</dt><dd>{{ legacy_owner }}</dd>{% endif %}
+    {% if legacy_status %}<dt>Status</dt><dd><span class="tag tag--status tag--status-{{ legacy_status }}">{{ legacy_status }}</span></dd>{% endif %}
+    {% if legacy_priority %}<dt>MoSCoW</dt><dd><span class="tag tag--priority tag--priority-{{ legacy_priority }}">{{ legacy_priority }}</span></dd>{% endif %}
+  </dl>
+  {% endif %}
+
+  {% with ids_raw=product, xref_type="product", heading="Product" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with ids_raw=page.meta["Domain IDs"]|default(""),
+          xref_type="domain",
+          heading="Linked Domains" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with ids_raw=page.meta["Activity IDs"]|default([]),
+          xref_type="activity",
+          heading="Linked Activities" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="requirement", field="feature", heading="Linked Requirements" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with ids_raw=page.meta.decisions|default([]), xref_type="decision", heading="Governed by Decisions" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

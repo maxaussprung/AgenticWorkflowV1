@@ -1,0 +1,90 @@
+parameters:
+  - name: deploymentServiceConnection
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: stageName
+    type: string
+
+  - name: pathToProject
+    type: string
+
+  - name: dbContexts
+    type: object
+    default: []
+
+jobs:
+  - deployment: deploy_database
+    displayName: Deploy Database
+    environment: ${{ parameters.environment }}
+    condition: eq(variables['apiChanged'], true)
+    dependsOn:
+      - deploy_azure_infrastructure
+    variables:
+      managedIdentityName: $[dependencies.deploy_azure_infrastructure.outputs['deploy_azure_infrastructure.infrastructureDeploymentOutputParameters.managedIdentityName']]
+      sqlServerConnectionString: $[dependencies.deploy_azure_infrastructure.outputs['deploy_azure_infrastructure.infrastructureDeploymentOutputParameters.sqlServerConnectionString']]
+      sqlServerDatabaseName: $[dependencies.deploy_azure_infrastructure.outputs['deploy_azure_infrastructure.infrastructureDeploymentOutputParameters.sqlServerDatabaseName']]
+      sqlServerName: $[dependencies.deploy_azure_infrastructure.outputs['deploy_azure_infrastructure.infrastructureDeploymentOutputParameters.sqlServerName']]
+    strategy:
+      runOnce:
+        # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs?view=azure-devops#descriptions-of-lifecycle-hooks
+        deploy:
+          steps:
+            - checkout: self
+            - download: none
+
+            - script: |
+                echo "##[debug] Parameters:"
+                echo "##[debug] Deployment Service Connection: ${{ parameters.deploymentServiceConnection }}"
+                echo "##[debug] Environment: ${{ parameters.environment }}"
+                echo "##[debug] SQL Server Connection String: $(sqlServerConnectionString)"
+                echo "##[debug] SQL Server Database Name: $(sqlServerDatabaseName)"
+                echo "##[debug] SQL Server Name: $(sqlServerName)"
+              displayName: "Prep: Deploy Database"
+
+            - task: UseDotNet@2
+              condition: succeeded()
+              displayName: Install .NET 8 SDK
+              inputs:
+                includePreviewVersions: false
+                packageType: sdk
+                performMultiLevelLookup: true
+                version: 8.x
+
+            - task: AzureCLI@2
+              displayName: Deploy SQL Permissions
+              inputs:
+                azureSubscription: ${{ parameters.deploymentServiceConnection }}
+                scriptType: pscore
+                scriptLocation: scriptPath
+                scriptPath: $(System.DefaultWorkingDirectory)/azure/scripts/deploy_sql_permissions.ps1
+                arguments: -SQLServerName $(sqlServerName) -SQLDBNames $(sqlServerDatabaseName) -AzServicePrincipalNames "$(managedIdentityName)", "serviceConnection-{client-name}-{project-name}-${{ parameters.stageName }}" -AzADGroupNames "{AZURE-AD-GROUP-NAME}" -Roles db_datareader,db_datawriter,db_owner,db_securityadmin,db_accessadmin,db_backupoperator,db_ddladmin
+
+            - task: NuGetCommand@2
+              displayName: Add Auth to nuget.config
+              inputs:
+                command: custom
+                arguments: sources Update -Name "{client-name}" -Source "https://pkgs.dev.azure.com/{client-name}/_packaging/{client-name}/nuget/v3/index.json" -username "not_used" -password $(System.AccessToken) -ConfigFile $(Build.SourcesDirectory)/nuget.config -StorePasswordInClearText
+
+            - ${{ each context in parameters.dbContexts }}:
+              - task: AzureCLI@2
+                condition: succeeded()
+                displayName: Run Database Migration for '${{ context }}'
+                inputs:
+                  azureSubscription: ${{ parameters.deploymentServiceConnection }}
+                  scriptType: pscore
+                  scriptLocation: inlineScript
+                  inlineScript: |
+                     # Initialize a local tool manifest (if none exists).
+                     dotnet new tool-manifest --force
+                     # Install dotnet-ef as a local tool.
+                     dotnet tool install dotnet-ef --version 9.0.1
+                     # Restore the tool to ensure it's available.
+                     dotnet tool restore
+                     # Set environment variables.
+                     $env:ConnectionString = 'Server=tcp:$(sqlServerName).database.windows.net,1433;Initial Catalog=$(sqlServerDatabaseName);Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
+                     $env:AccessToken = az account get-access-token --resource=https://database.windows.net/ --query accessToken | ConvertFrom-Json
+                     # Migrate database.
+                     dotnet ef database update --context ${{ context }} --verbose --project ${{ parameters.pathToProject }} --startup-project ${{ parameters.pathToProject }}

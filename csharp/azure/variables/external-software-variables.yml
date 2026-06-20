@@ -1,0 +1,10 @@
+variables:
+  PlatformName: {PLATFORM-NAME}  # Your platform identifier
+  BlackduckProjectName: {ClientName}.{ProjectName}
+  LeanIXBackendApplicationId: {LEANIX-APPLICATION-ID}
+  LeanIXFrontendApplicationId: {LEANIX-APPLICATION-ID}
+  SonarQubeBackendProjectName: {ClientName}.{ProjectName}_Backend
+  SonarQubeFrontendProjectName: {ClientName}.{ProjectName}_Frontend
+  SonarQubeServiceConnection: Sonarqube_Public
+  SonarQubeQualityGateAPI: api/qualitygates/project_status
+  SonarQubeURL: https://{SONARQUBE-URL}

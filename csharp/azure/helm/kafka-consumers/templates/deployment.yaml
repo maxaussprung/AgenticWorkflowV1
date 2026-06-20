@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "release.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "release.fullname" . }}
+  replicas: {{ .Values.deployment.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "release.fullname" . }}
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ include "release.fullname" . }}-sa
+      containers:
+      - name: {{ .Values.container.name }}
+        image: "{{ .Values.container.image }}:{{ .Values.container.imageVersion }}"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.container.port }}
+        resources:
+          {{- toYaml .Values.container.resources | nindent 10 }}
+        livenessProbe:
+          exec:
+            command:
+              - cat
+              - /tmp/healthy
+          failureThreshold: 3
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+          initialDelaySeconds: 180
+        readinessProbe:
+          exec:
+            command:
+              - cat
+              - /tmp/healthy
+          failureThreshold: 3
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+          initialDelaySeconds: 180
+        securityContext:
+          capabilities:
+            drop:
+            - all
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+        volumeMounts:
+          - mountPath: /app/appsettings.k8s.json
+            name: {{ include "release.fullname" . }}-appsettings-cm
+            subPath: appsettings.json
+      volumes:
+        - name: {{ include "release.fullname" . }}-appsettings-cm
+          configMap:
+            name: {{ include "release.fullname" . }}-appsettings-cm

@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "release.fullname" . }}-ss
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ include "release.fullname" . }}-hsvc
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.statefulset.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "release.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "release.fullname" . }}
+    spec:
+      serviceAccountName: {{ include "release.fullname" . }}-sa
+      containers:
+      - name: {{ .Values.container.name }}
+        image: "{{ .Values.container.image }}:{{ .Values.container.imageVersion }}"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.container.port }}
+        resources:
+          {{- toYaml .Values.container.resources | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.container.port }}
+          initialDelaySeconds: 180
+          periodSeconds: 60
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.container.port }}
+          initialDelaySeconds: 180
+          periodSeconds: 60
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 64198
+          runAsGroup: 64198
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - all
+        env:
+          - name: TYPESENSE_DATA_DIR
+            value: "/typesense/data"
+          - name: TYPESENSE_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: typesense-secrets
+                key: Typesense--ApiKey
+        volumeMounts:
+          - name: nodes
+            mountPath: /typesense
+          - name: secrets
+            mountPath: /typesense/secrets
+            readOnly: true
+          - name: typesense-data
+            mountPath: /typesense/data
+      volumes:
+        - name: nodes
+          configMap:
+            name: {{ include "release.fullname" . }}-cm
+        - name: secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+               secretProviderClass: {{ include "release.fullname" . }}-spc
+        - name: typesense-data
+          emptyDir: {}

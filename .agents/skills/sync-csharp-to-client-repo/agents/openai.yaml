@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sync C# Client Repo"
+  short_description: "Push csharp/ contents to Azure Repos"
+  default_prompt: "Use $sync-csharp-to-client-repo to dry-run and push the csharp/ contents from master to the client develop branch."
+policy:
+  allow_implicit_invocation: true

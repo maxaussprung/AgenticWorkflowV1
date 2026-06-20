@@ -1,0 +1,140 @@
+parameters:
+  - name: deploymentServiceConnection
+    type: string
+
+  - name: previousStageName
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: variableGroup
+    type: string
+
+  - name: stageName
+    type: string
+
+  - name: subscriptionId
+    type: string
+
+  - name: acrName
+    type: string
+
+  - name: acrServiceConnection
+    type: string
+
+  - name: dockerFrontendImageName
+    type: string
+
+  - name: dockerImageTag
+    type: string
+
+stages:
+  - stage: ${{ parameters.stageName }}
+    displayName: Deployment in '${{ parameters.stageName }}'
+    dependsOn:
+      - ${{ parameters.previousStageName }}
+      - initialize
+    condition: |
+      and(
+        succeeded(),
+        or(
+          and(
+            eq(variables['Build.SourceBranch'], 'refs/heads/develop'),
+            or(
+              ${{ eq(parameters.stageName, 'dev') }},
+              ${{ eq(parameters.stageName, 'test') }}
+            )
+          ),
+          eq(variables['Build.SourceBranch'], 'refs/heads/main')
+        )
+      )
+    variables:
+      - group: ${{ parameters.variableGroup }}
+      - template: ../variables/common-variables.yml
+      - template: ../variables/variables-${{ parameters.stageName }}.yml
+      - name: uiChanged
+        value: $[ stageDependencies.initialize.check_for_path_changes.outputs['detectChanges.uiChanged'] ]
+      - name: apiChanged
+        value: $[ stageDependencies.initialize.check_for_path_changes.outputs['detectChanges.apiChanged'] ]
+    jobs:
+      - template: job-deploy-infrastructure.yml
+        parameters:
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          stageName: ${{ parameters.stageName }}
+          subscriptionId: ${{ parameters.subscriptionId }}
+          azureAdClientSecret: $(AzureAd.ClientSecret)
+
+      - template: job-create-federated-credentials.yml
+        parameters:
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          kubernetesCluster: ${{ variables.KubernetesCluster }}
+          kubernetesClusterIssuerUrl: ${{ variables.KubernetesClusterIssuerUrl }}
+          kubernetesClusterResourceGroup: ${{ variables.KubernetesClusterResourceGroup }}
+          kubernetesClusterSubscription: ${{ variables.KubernetesClusterSubscription }}
+          kubernetesNamespace: ${{ variables.KubernetesNamespace }}
+          credentialSeekers:
+            - namespace: ${{ variables.KubernetesTenant }}-api
+              serviceAccount: {project-name}-api-sa
+            - namespace: ${{ variables.KubernetesTenant }}-app
+              serviceAccount: {project-name}-app-sa
+          resourceGroup: ${{ variables.ResourceGroupName }}
+          stageName: ${{ parameters.stageName }}
+          subscriptionName: ${{ variables.SubscriptionName }}
+          previousStageName: deploy_azure_infrastructure
+
+      - template: job-deploy-database.yml
+        parameters:
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          stageName: ${{ parameters.stageName }}
+          pathToProject: src/backend/{ClientName}.{ProjectName}.Infrastructure
+          dbContexts:
+            - {ProjectName}DbContext
+            - QueueDbContext
+
+      - template: job-deploy-api-to-kubernetes.yml
+        parameters:
+          artifactName: {project-name}-api-chart
+          acrName: ${{ parameters.acrName }}
+          acrServiceConnection: ${{ parameters.acrServiceConnection }}
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          helmChartName: {project-name}-api
+          kubernetesCluster: ${{ variables.KubernetesCluster }}
+          kubernetesClusterResourceGroup: ${{ variables.KubernetesClusterResourceGroup }}
+          kubernetesClusterSubscription: ${{ variables.KubernetesClusterSubscription }}
+          kubernetesNamespace: ${{ variables.KubernetesNamespace }}
+          kubernetesTenant: ${{ variables.KubernetesTenant }}
+          stageName: ${{ parameters.stageName }}
+
+      - template: job-deploy-api-to-apim.yml
+        parameters:
+          apiMgmtApiId: ${{ variables.apiMgmtApiId }} # Id of the API in APIM
+          apiMgmtInternal: true # true for internal
+          apiType: OpenApi # Or GraphQl
+          backendServiceUrl: ${{ variables.backendServiceUrl }} # Url of the backend service to be stored in APIM
+          environment: ${{ parameters.environment }}
+          serviceConnection: ${{ parameters.deploymentServiceConnection }} # Service connection to use for the deployment
+          swaggerUrl: ${{ variables.swaggerUrl }} # Url for the API definition document
+
+      - template: job-deploy-app-to-kubernetes.yml
+        parameters:
+          acrName: ${{ parameters.acrName }}
+          acrServiceConnection: ${{ parameters.acrServiceConnection }}
+          apiBaseUrl: ${{ variables.NEXT_PUBLIC_API_BASE_URL }}
+          artifactName: {project-name}-app-chart
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          dockerFrontendImageName: ${{ parameters.dockerFrontendImageName }}
+          dockerImageTag: ${{ parameters.dockerImageTag }}
+          environment: ${{ parameters.environment }}
+          helmChartName: {project-name}-app
+          kubernetesCluster: ${{ variables.KubernetesCluster }}
+          kubernetesClusterResourceGroup: ${{ variables.KubernetesClusterResourceGroup }}
+          kubernetesClusterSubscription: ${{ variables.KubernetesClusterSubscription }}
+          kubernetesNamespace: ${{ variables.KubernetesTenant }}-app
+          kubernetesTenant: ${{ variables.KubernetesTenant }}
+          stageName: ${{ parameters.stageName }}
+          variableGroup: ${{ parameters.variableGroup }}

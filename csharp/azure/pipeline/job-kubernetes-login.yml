@@ -1,0 +1,52 @@
+parameters:
+  - name: deploymentServiceConnection
+    type: string
+
+  - name: kubernetesCluster
+    type: string
+
+  - name: kubernetesClusterResourceGroup
+    type: string
+
+  - name: kubernetesClusterSubscription
+    type: string
+
+  # Use this parameter if you want to use a specific kubelogin version or "latest". (Default: "")
+  # If kubelogiVersion is not specified (= default option) the kubelogin binary installed directly to the VM.
+  - name: kubeloginVersion
+    type: string
+    default: ""
+
+steps:
+  - task: KubeLoginInstaller@0
+    displayName: Install kubeLogin
+    condition: ${{ ne(parameters.kubeloginVersion, '') }}
+    inputs:
+        kubeloginVersion: ${{ parameters.kubeloginVersion }}
+
+  - task: PowerShell@2
+    displayName: Get Cluster Subscription Name
+    inputs:
+      targetType: inline
+      script: |
+        $clusterSubscription = '${{ parameters.kubernetesClusterSubscription }}'
+
+        if(($clusterSubscription -eq $null) -or ($clusterSubscription -eq "") -or ($clusterSubscription -match 'defaultKuberneteskubernetesClusterSubscription')) {
+          Write-Output "kubernetesClusterSubscription parameter was not passed to template, attempting to parse subscription from cluster name."
+          $env = ('${{ parameters.kubernetesCluster }}' | Select-String -Pattern 'aks-(.*?)-').Matches.Groups[1].Value
+          $clusterSubscription = "Shared K8s $env"
+        }
+
+        Write-Output "##[debug] Cluster subscription: '$clusterSubscription'"
+        Write-Output "##vso[task.setvariable variable=clusterSubscription;issecret=false;isoutput=false]$clusterSubscription"
+
+  - task: AzureCLI@2
+    displayName: Login to Kubernetes Cluster
+    inputs:
+        azureSubscription: ${{ parameters.deploymentServiceConnection }}
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az account set --subscription "$(clusterSubscription)"
+          az aks get-credentials --name '${{ parameters.kubernetesCluster }}' --resource-group '${{ parameters.kubernetesClusterResourceGroup }}'
+          kubelogin convert-kubeconfig -l azurecli

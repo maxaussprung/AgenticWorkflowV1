@@ -1,0 +1,76 @@
+{#- Render lists of application names referenced from Features (System,
+    Accountable, Supported) that have no matching entry in the imported
+    Applications list. Walks `xref.feature` and `xref.application` at build
+    time, so the lists stay in sync without any importer step.
+
+    Rendered as one section per source field, each entry showing the unknown
+    name and the features that mention it (so the user can drill in to fix
+    the source). -#}
+{% set apps = (xref | default({})).get("application", {}) %}
+{% set features = (xref | default({})).get("feature", {}) %}
+
+{# fields scanned, in order. -#}
+{% set source_fields = [
+  ("System", "From feature `System`"),
+  ("Accountable", "From feature `Accountable`"),
+  ("Supported", "From feature `Supported`"),
+] %}
+
+{% set sections = [] %}
+{% for field, heading in source_fields %}
+  {# name → list of feature entries that referenced it under this field. #}
+  {% set hits = namespace(map={}) %}
+  {% for fid, fentry in features.items() %}
+    {% set raw = fentry.meta.get(field) %}
+    {% if raw and raw != 0 %}
+      {# Tokenise: comma-split for strings, iterate for lists, so compound
+         values like "ATLAS, VDE" are reported as separate names. #}
+      {% set items = [] %}
+      {% if raw is string %}
+        {% for chunk in raw.split(",") %}
+          {% set t = chunk.strip() %}
+          {% if t %}{% set _ = items.append(t) %}{% endif %}
+        {% endfor %}
+      {% else %}
+        {% for r in raw %}
+          {% set t = (r | string).strip() %}
+          {% if t %}{% set _ = items.append(t) %}{% endif %}
+        {% endfor %}
+      {% endif %}
+      {% for name in items %}
+        {% if not apps.get(name) %}
+          {% if name not in hits.map %}{% set _ = hits.map.update({name: []}) %}{% endif %}
+          {% set _ = hits.map[name].append(fentry) %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+  {% if hits.map %}
+    {% set _ = sections.append((heading, hits.map)) %}
+  {% endif %}
+{% endfor %}
+
+<div class="md-typeset">
+  {% if not sections %}
+    <p>All System, Accountable and Supported references resolve to applications.</p>
+  {% else %}
+    <p>Names listed below are referenced from one or more Features but have no
+    matching page in the Applications list. Each entry shows the features
+    that mention it — fix either by adding the application to the workbook
+    or by correcting the name in the feature.</p>
+    {% for heading, name_map in sections %}
+      <h2>{{ heading }}</h2>
+      <ul class="rm-link-list">
+        {% for name in name_map.keys() | sort %}
+          <li>
+            <strong>{{ name }}</strong>
+            — referenced by
+            {% for fentry in name_map[name] -%}
+              <a href="{{ base_url }}/{{ fentry.url }}">{{ fentry.meta.id }}</a>{% if not loop.last %}, {% endif %}
+            {%- endfor %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  {% endif %}
+</div>

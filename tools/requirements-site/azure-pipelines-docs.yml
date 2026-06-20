@@ -1,0 +1,93 @@
+# =============================================================================
+# {PROJECT-NAME} Requirements MkDocs — deploy master to Azure Static Web Apps
+# -----------------------------------------------------------------------------
+# Replace {PROJECT-NAME} with your project name.
+#
+# Builds the master docs and publishes them to the Static Web App. Single
+# version (no branch dropdown) — the full multi-version site exceeds the SWA
+# size limit, so this targets master only.
+#
+# Refresh ("pull from git + redeploy") happens via:
+#   1. CI trigger  — every push to master.
+#   2. Schedule    — nightly at 04:00 UTC (re-pulls master, redeploys).
+#   3. Manual run  — "Run pipeline" in Azure DevOps.
+#
+# NOTE: scheduled + CI triggers only fire once this YAML is on `master` and a
+# pipeline is created from it in Azure DevOps.
+#
+# BEFORE FIRST RUN:
+#   * SWA_DEPLOYMENT_TOKEN — SECRET pipeline variable holding the Static Web App
+#     deployment token (Portal: the SWA resource -> "Manage deployment token").
+#     Do NOT put it in this file.
+# =============================================================================
+
+name: docs-deploy-$(Date:yyyyMMdd)-$(Rev:r)
+
+# 1) CI trigger — pull + redeploy on every push to master.
+trigger:
+  branches:
+    include:
+      - master
+
+# Don't deploy on PR builds.
+pr: none
+
+# 2) Nightly refresh — re-pull master from git and redeploy.
+schedules:
+  - cron: "0 4 * * *"            # 04:00 UTC daily
+    displayName: Nightly docs refresh
+    branches:
+      include:
+        - master
+    always: true                 # run even when there are no new commits
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  pythonVersion: '3.12'
+  configFile: 'tools/requirements-site/mkdocs.yml'
+  # mkdocs.yml site_dir (relative to repo root) — where the built site lands.
+  siteOutDir: 'reports/evaluations/requirements-site'
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+    displayName: Checkout (git pull master)
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(pythonVersion)'
+    displayName: Use Python $(pythonVersion)
+
+  - script: |
+      set -euo pipefail
+      python -m pip install --upgrade pip
+      pip install -r tools/requirements-site/requirements.txt
+    displayName: Install MkDocs
+
+  - script: |
+      set -euo pipefail
+      # --strict is the gate: any broken link / nav / template error fails the deploy.
+      mkdocs build --strict --config-file "$(configFile)"
+      echo "Built site:"; ls -la "$(siteOutDir)" | head
+    displayName: Build site (mkdocs --strict)
+
+  - script: |
+      set -euo pipefail
+      # Entra ID gate: this config must sit at the deployed site root so SWA
+      # enforces auth. (Requires Standard plan + AAD_CLIENT_ID/SECRET app settings.)
+      cp tools/requirements-site/staticwebapp.config.json "$(siteOutDir)/staticwebapp.config.json"
+    displayName: Add SWA Entra auth config
+
+  - publish: '$(Build.SourcesDirectory)/$(siteOutDir)'
+    artifact: requirements-site
+    displayName: Publish build artifact
+
+  - task: AzureStaticWebApp@0
+    displayName: Deploy to Azure Static Web Apps
+    inputs:
+      app_location: '$(siteOutDir)'
+      skip_app_build: true
+      skip_api_build: true
+      azure_static_web_apps_api_token: $(SWA_DEPLOYMENT_TOKEN)   # SECRET pipeline variable

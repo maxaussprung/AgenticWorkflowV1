@@ -1,0 +1,83 @@
+parameters:
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: URL
+    type: string
+    default: "http://localhost:3000"
+
+  - name: cachePath
+    type: string
+    default: /home/AzDevOps/.local/share/pnpm/store/
+
+  - name: testType
+    type: string
+
+  - name: stageDisplayName
+    type: string
+
+  - name: previousStageName
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: managedIdentityName
+    type: string
+
+  - name: sqlServerName
+    type: string
+
+  - name: sqlServerDatabaseName
+    type: string
+
+  - name: deploymentServiceConnection
+    type: string
+    default: "{service-connection}-dev"
+
+steps:
+  - script: |
+      echo "##[debug] Test Type  : ${{ parameters.testType }}"
+      echo "##[debug] Url        : ${{ parameters.URL }}"
+      echo "##[debug] previousStageName: ${{ parameters.previousStageName }}"
+      echo "##[debug] SQL Server Database Name: ${{parameters.sqlServerDatabaseName}}"
+      echo "##[debug] SQL Server Name: ${{parameters.sqlServerName}}"
+      echo "##[debug] deploymentServiceConnection: ${{parameters.deploymentServiceConnection}}"
+    displayName: "Prep: Run ${{ parameters.stageDisplayName }}"
+
+  - task: NodeTool@0
+    condition: succeeded()
+    displayName: Install Node.js
+    inputs:
+      versionSpec: "18.19.1"
+
+  - template: job-cache-and-install-frontend-dependencies.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      cachePath: ${{ parameters.cachePath }}
+
+  - template: job-install-and-run-playwright.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      URL: ${{ parameters.URL }}
+      testType: ${{ parameters.testType }}
+      stageDisplayName: ${{ parameters.stageDisplayName }}
+      IsAzureReporterDisabled: "false"
+
+  - template: job-publish-playwright-report.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      testType: ${{parameters.testType}}
+      stageDisplayName: ${{parameters.stageDisplayName}}
+      environment: ${{ parameters.environment }}
+
+  - task: AzureCLI@2
+    displayName: Cleanup Orders from Database
+    condition: eq('${{ parameters.previousStageName }}', 'dev')
+    inputs:
+      azureSubscription: ${{ parameters.deploymentServiceConnection }}
+      scriptType: pscore
+      scriptLocation: scriptPath
+      scriptPath: $(System.DefaultWorkingDirectory)/azure/scripts/delete_orders_from_db.ps1
+      arguments: -SQLServerName ${{ parameters.sqlServerName }} -DatabaseName ${{ parameters.sqlServerDatabaseName }}

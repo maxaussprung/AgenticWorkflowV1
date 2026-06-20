@@ -1,0 +1,226 @@
+parameters:
+  - name: acrName
+    type: string
+
+  - name: acrServiceConnection
+    type: string
+
+  - name: coverageReportOutputDirectory
+    type: string
+
+  - name: containerRegistryDomain
+    type: string
+    default: azurecr.io
+
+  - name: helmArtifactsPath
+    type: string
+
+  - name: sonarQubeFrontendProjectName
+    type: string
+
+  - name: sonarQubeServiceConnection
+    type: string
+
+  - name: sonarQubeQualityGateAPI
+    type: string
+
+  - name: sonarQubeURL
+    type: string
+
+  - name: leanIXFrontendApplicationId
+    type: string
+
+  - name: platformName
+    type: string
+
+  - name: blackduckProjectName
+    type: string
+
+  - name: cachePath
+    type: string
+    default: /home/AzDevOps/.local/share/pnpm/store/
+
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: testType
+    type: string
+    default: it
+
+  - name: stageDisplayName
+    type: string
+    default: "Integration Tests"
+
+steps:
+  - script: |
+      echo "##[debug] Build.Reason             : ${{ variables['Build.Reason'] }}"
+      echo "##[debug] SourceBranch             : ${{ variables['Build.SourceBranch'] }}"
+      echo "##[debug] PullRequest.TargetBranch : ${{ variables['System.PullRequest.TargetBranch'] }}"
+    displayName: Print Build Variables
+
+  - task: NodeTool@0
+    condition: succeeded()
+    displayName: Install Node.js
+    inputs:
+      versionSpec: "18.19.1"
+
+  - task: npmAuthenticate@0
+    condition: succeeded()
+    displayName: Authenticate npm
+    inputs:
+      workingFile: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}/.npmrc
+
+  - template: job-cache-and-install-frontend-dependencies.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      cachePath: ${{ parameters.cachePath }}
+
+  - task: SonarQubePrepare@7
+    condition: succeeded()
+    displayName: SonarQube Prepare - Frontend
+    retryCountOnTaskFailure: 3
+    inputs:
+      SonarQube: ${{ parameters.sonarQubeServiceConnection }}
+      scannerMode: CLI
+      configMode: manual
+      cliProjectKey: $(SonarQube.FrontendProjectKey)
+      extraProperties: |
+        sonar.projectBaseDir=$(Build.SourcesDirectory)/${{ parameters.frontendPath }}
+        sonar.sources=src/
+        sonar.tests=src/
+        sonar.test.inclusions=src/**/*.test.ts,src/**/*.test.tsx
+        sonar.exclusions=.jest/**,.next/**,public/**,tests/**,src/core/**,src/mock-server/**,src/pages/**,src/store/**,src/test-utils/**,src/translations/**,src/**/styles.ts,src/**/index.ts,src/**/*.d.ts,*.config.js,jest.setup.ts
+        sonar.coverage.exclusions=src/core/**,src/store/**,src/test-utils/**,src/utils/**,src/mock-server/**,src/tests/**,src/**/styles.ts,src/**/index.ts,src/**/*.d.ts,src/**/*.test.ts,src/**/*.test.tsx,src/**/__tests__/**,src/**/types.ts
+        sonar.javascript.lcov.reportPaths=./reports/coverage/lcov.info
+        sonar.typescript.tsconfigPath=tsconfig.json
+
+  - task: CmdLine@2
+    condition: succeeded()
+    displayName: Build Artifact
+    inputs:
+      script: pnpm build
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}
+
+  - task: CmdLine@2
+    condition: succeeded()
+    displayName: Run Unit Tests
+    inputs:
+      script: pnpm test:ci
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}
+
+  - task: PublishTestResults@2
+    displayName: Publish Unit Test Results
+    condition: succeeded()
+    inputs:
+      failTaskOnFailedTests: false
+      testResultsFiles: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}/reports/coverage/junit.xml
+      testResultsFormat: JUnit
+      testRunTitle: Frontend Unit Tests
+
+  - task: PublishCodeCoverageResults@2
+    displayName: Publish Coverage Results
+    condition: succeeded()
+    inputs:
+      summaryFileLocation: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}/reports/coverage/cobertura-coverage.xml
+      failIfCoverageEmpty: false
+
+  - task: SonarQubeAnalyze@7
+    displayName: SonarQube Analyze
+    condition: succeeded()
+
+  - task: SonarQubePublish@7
+    displayName: SonarQube Publish
+    condition: succeeded()
+    inputs:
+      pollingTimeoutSec: 300
+
+  - task: Bash@3
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    displayName: Check SonarQube Quality Gate
+    inputs:
+      targetType: filePath
+      filePath: $(Build.SourcesDirectory)/azure/scripts/check_quality_gate.sh
+    env:
+      BEARER_TOKEN: $(SonarQube.BearerToken)
+      SOURCE_BRANCH: $(Build.SourceBranch)
+      PROJECT_KEY: $(SonarQube.FrontendProjectKey)
+      SONARQUBE_URL: ${{ parameters.sonarQubeURL }}
+      API: ${{ parameters.sonarQubeQualityGateAPI }}
+
+  - task: CopyFiles@2
+    displayName: Copy Build Files
+    condition: and(succeeded(), not(canceled()), ne(variables['Build.Reason'], 'PullRequest'))
+    inputs:
+      sourceFolder: $(Build.SourcesDirectory)/${{ parameters.frontendPath }}
+      targetFolder: $(Build.ArtifactStagingDirectory)/release
+      contents: |
+        public/**
+        src/**
+        helm/**
+        .env.production
+        next.config.js
+        package.json
+        server.js
+        tsconfig.json
+        pnpm-lock.yaml
+        Dockerfile
+        .dockerignore
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Build Files
+    condition: and(succeeded(), not(canceled()), ne(variables['Build.Reason'], 'PullRequest'))
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/release
+      artifactName: {PROJECT-NAME}-Frontend
+
+  - template: job-install-and-run-playwright.yml
+    parameters:
+      stageDisplayName: UI Integration Tests
+      frontendPath: ${{ parameters.frontendPath }}
+      testType: ${{ parameters.testType }}
+      ADO_PERSONAL_ACCESS_TOKEN: ""
+      IsAzureReporterDisabled: "true"
+
+  - template: job-publish-playwright-report.yml
+    parameters:
+      frontendPath: ${{ parameters.frontendPath }}
+      testType: ${{parameters.testType}}
+      stageDisplayName: ${{parameters.stageDisplayName}}
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2
+  - task: AzureCLI@2
+    name: acrLogin
+    condition: succeeded()
+    displayName: Login to ACR
+    inputs:
+      azureSubscription: ${{ parameters.acrServiceConnection }}
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        az acr login -n ${{ parameters.acrName }}
+        $loginServer = "${{ parameters.acrName }}.${{ parameters.containerRegistryDomain }}"
+        echo "##[debug] Login server: '$loginServer'"
+        Write-Host "##vso[task.setvariable variable=containerRegistryLoginServer;issecret=true]$loginServer"
+
+    # https://dev.azure.com/{client-name}/SharedComponents/_wiki/wikis/cicd-templates/35974/runBlackDuckScan
+  - template: templates/blackduck/v1-pnpm/runBlackDuckScan.yml@templates
+    parameters:
+      # dockerImage: ${{ parameters.acrName }}.${{ parameters.containerRegistryDomain }}/${{ parameters.dockerImageName }}:latest
+      # dockerScan: true
+      forceBlackDuckScan: true
+      forceFullScanOnFeatureBranch: true
+      leanIxAppid: ${{ parameters.leanIXFrontendApplicationId }}
+      path: $(Build.SourcesDirectory)/${{ parameters.frontendPath }}
+      platform: ${{ parameters.platformName }}
+      projectName: ${{ parameters.blackduckProjectName }}
+      projectNameSuffix: Frontend
+      taskNamePrefix: BD
+
+  - template: job-package-helm.yml
+    parameters:
+      acrName: ${{ parameters.acrName }}
+      helmChartName: {project-name}-app
+      helmChartPath: $(Build.SourcesDirectory)/azure/helm/frontend
+      helmChartVersion: $(Build.BuildNumber)
+      registryRepositoryPath: ${{ parameters.helmArtifactsPath }}

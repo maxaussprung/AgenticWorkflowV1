@@ -1,0 +1,1368 @@
+/* Component & page styles for the requirements site.
+   Design tokens and theme variables live in tokens.css; top-nav styles in nav.css
+   (both loaded before this file — see `extra_css` order in mkdocs.yml). */
+
+/* Requirements management cards */
+
+.rm-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 4px solid var(--md-primary-fg-color);
+  border-radius: 0.25rem;
+  padding: 1rem 1.25rem;
+  margin: 0 0 1.5rem 0;
+  background: var(--md-code-bg-color);
+}
+
+.rm-card--feature     { border-left-color: #0969da; }
+.rm-card--product     { border-left-color: #0078c8; }
+.rm-card--requirement { border-left-color: #1a7f37; }
+.rm-card--decision    { border-left-color: #9a3412; }
+.rm-card--application { border-left-color: #bf8700; }
+.rm-card--vision      { border-left-color: #00897b; }
+.rm-card--domain      { border-left-color: #5e35b1; }
+.rm-card--activity    { border-left-color: #ef6c00; }
+.rm-card--test_case   { border-left-color: #c2185b; }
+.rm-card--source_document { border-left-color: #455a64; }
+
+.rm-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.rm-kind {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+  background: var(--md-default-fg-color--lightest);
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.2rem;
+}
+
+.rm-id {
+  font-family: var(--md-code-font-family);
+  font-size: 0.85rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Secondary RFI deep-dive identifier on epics (e.g. "A.1"). Subtler than
+   the primary id so EPIC001 stays visually dominant. */
+.rm-id--rfi {
+  opacity: 0.75;
+  border-left: 1px solid var(--md-default-fg-color--lightest);
+  padding-left: 0.5rem;
+  margin-left: -0.25rem;
+}
+
+.rm-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0;
+  flex: 1 1 100%;
+}
+
+.rm-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.rm-meta dt {
+  font-weight: 600;
+  color: var(--md-default-fg-color--light);
+  margin: 0;
+}
+
+.rm-meta dd {
+  margin: 0;
+}
+
+/* Generic tag pill */
+.tag {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #e0e0e0;
+  color: #333;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Status colours: green = approved/done, amber = review, blue = in-progress, grey = draft */
+.tag--status-approved { background: #1a7f37; color: #fff; }
+.tag--status-review   { background: #d4a017; color: #fff; }
+.tag--status-in-progress { background: #0969da; color: #fff; }
+.tag--status-done { background: #1a7f37; color: #fff; }
+.tag--status-draft    { background: #9e9e9e; color: #fff; }
+
+/* Decision (ADR) status: green = accepted, amber = proposed, grey =
+   superseded/deprecated. */
+.tag--decision-status            { background: #9e9e9e; color: #fff; }
+.tag--decision-status-accepted   { background: #1a7f37; color: #fff; }
+.tag--decision-status-proposed   { background: #d4a017; color: #fff; }
+.tag--decision-status-superseded { background: #9e9e9e; color: #fff; }
+.tag--decision-status-deprecated { background: #b91c1c; color: #fff; }
+
+/* Priority colours: green = must, amber = should, grey = could, red = wont */
+.tag--priority-must   { background: #1a7f37; color: #fff; }
+.tag--priority-should { background: #d4a017; color: #fff; }
+.tag--priority-could  { background: #9e9e9e; color: #fff; }
+.tag--priority-wont   { background: #c62828; color: #fff; }
+
+/* Numeric priorities used by imported epics (1 = high, 2 = lower). */
+.tag--priority-1 { background: #1a7f37; color: #fff; }
+.tag--priority-2 { background: #d4a017; color: #fff; }
+
+/* Tier badges */
+.tag--tier-1 { background: #0969da; color: #fff; }
+.tag--tier-2 { background: #6f42c1; color: #fff; }
+
+/* Functional / non-functional kind badges */
+.tag--kind-functional      { background: #1a7f37; color: #fff; }
+.tag--kind-non-functional  { background: #6f42c1; color: #fff; }
+
+/* NFR category — neutral chip, sits next to the kind badge */
+.tag--nfr {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 0.25rem;
+}
+
+/* Free-form requirement tags (compliance, cross-cutting concerns) */
+.tag--reqtag {
+  background: #455a64;
+  color: #fff;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-right: 0.25rem;
+}
+
+.tag--speccode {
+  background: #0078c8;
+  color: #fff;
+  margin-right: 0.25rem;
+}
+.tag--mapping-source-confirmed { background: #1a7f37; color: #fff; }
+.tag--mapping-legacy-confirmed { background: #0969da; color: #fff; }
+.tag--mapping-inferred { background: #d4a017; color: #fff; }
+.tag--mapping-needs-review { background: #c62828; color: #fff; }
+.rm-note {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.82rem;
+}
+
+/* Test case test-type badges */
+.tag--testtype-UAT          { background: #0969da; color: #fff; }
+.tag--testtype-integration  { background: #00897b; color: #fff; }
+.tag--testtype-e2e          { background: #ef6c00; color: #fff; }
+.tag--testtype-unit         { background: #9e9e9e; color: #fff; }
+
+/* Application status: planned (grey) / in-spec (amber) / baselined (green) */
+.tag--appstatus-planned   { background: #9e9e9e; color: #fff; }
+.tag--appstatus-in-spec   { background: #d4a017; color: #fff; }
+.tag--appstatus-baselined { background: #1a7f37; color: #fff; }
+
+/* Tech stack chips */
+.tag--tech {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-right: 0.25rem;
+}
+
+/* Phase chip — neutral, sits in the meta block */
+.tag--phase { background: #455a64; color: #fff; }
+
+/* Source-document "Official" stamp */
+.tag--source-official { background: #0969da; color: #fff; }
+
+/* Spec section coverage matrix (source document page) */
+.tag--cov-covered       { background: #1a7f37; color: #fff; }
+.tag--cov-uncovered     { background: #c62828; color: #fff; }
+.tag--cov-informational { background: #9e9e9e; color: #fff; }
+.rm-cov-summary { margin: 0.25rem 0 0.75rem 0; }
+.rm-spec-cov__row--parent { background: var(--md-default-fg-color--lightest); font-weight: 600; }
+
+/* Source-tier badges — highest verifiable source per feature/requirement.
+   gold = project backlog (e.g. Azure Boards), silver = specification document, bronze = legacy code. */
+.tag--source-tier-gold   { background: #b8860b; color: #fff; }
+.tag--source-tier-silver { background: #6b7280; color: #fff; }
+.tag--source-tier-bronze { background: #8c5a2b; color: #fff; }
+
+/* OpenSpec backward link — the change that implements a requirement. */
+.tag--openspec { background: #2563eb; color: #fff; }
+.rm-meta__note { color: var(--md-default-fg-color--light); font-size: 0.85em; }
+
+/* External API research evidence matrix. Keep the five evidence columns fully
+   visible in the content area by wrapping long paths and endpoint names. */
+@media screen and (min-width: 76.25em) {
+  .md-main__inner:has(.api-evidence-table-wrap) {
+    max-width: 96rem;
+  }
+}
+
+.md-typeset .api-comm-diagram {
+  margin: 0.75rem 0 1.35rem;
+  padding: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.25rem;
+  background: var(--md-code-bg-color);
+}
+
+.md-typeset .api-comm-diagram .mermaid {
+  min-width: 36rem;
+}
+
+.md-typeset .api-comm-diagram svg {
+  max-width: none;
+  height: auto;
+}
+
+.md-typeset .api-diagram-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.35rem 0 0.55rem;
+  font-size: 0.62rem;
+  line-height: 1.25;
+}
+
+.md-typeset .api-diagram-legend__item {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.38rem;
+  border: 2px solid;
+  border-radius: 0.12rem;
+  background: var(--md-default-bg-color);
+  font-weight: 600;
+}
+
+.md-typeset .api-diagram-legend__item--current {
+  border-color: #059669;
+  color: #064e3b;
+  background: #ecfdf3;
+}
+
+.md-typeset .api-diagram-legend__item--scope {
+  border-color: #ea580c;
+  color: #7c2d12;
+  background: #fff7ed;
+}
+
+.md-typeset .api-diagram-legend__item--outscope {
+  border-color: #dc2626;
+  border-style: dashed;
+  color: #7f1d1d;
+  background: #fef2f2;
+}
+
+.md-typeset .api-evidence-table-wrap {
+  max-width: 100%;
+}
+
+.md-typeset .api-evidence-table-wrap table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 0.56rem;
+  line-height: 1.32;
+}
+
+.md-typeset .api-evidence-table-wrap th,
+.md-typeset .api-evidence-table-wrap td {
+  vertical-align: top;
+  padding: 0.42rem 0.44rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.md-typeset .api-evidence-table-wrap th:first-child,
+.md-typeset .api-evidence-table-wrap td:first-child {
+  width: 14%;
+  font-weight: 600;
+}
+
+.md-typeset .api-evidence-table-wrap th:nth-child(2),
+.md-typeset .api-evidence-table-wrap td:nth-child(2) {
+  width: 21%;
+}
+
+.md-typeset .api-evidence-table-wrap th:nth-child(3),
+.md-typeset .api-evidence-table-wrap td:nth-child(3) {
+  width: 17%;
+}
+
+.md-typeset .api-evidence-table-wrap th:nth-child(4),
+.md-typeset .api-evidence-table-wrap td:nth-child(4) {
+  width: 27%;
+}
+
+.md-typeset .api-evidence-table-wrap th:nth-child(5),
+.md-typeset .api-evidence-table-wrap td:nth-child(5) {
+  width: 21%;
+}
+
+.md-typeset .api-evidence-table-wrap code {
+  font-size: 0.52rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.md-typeset .api-evidence-table-wrap tr:has(.api-spec-no-direct) td {
+  background: #fff4b8;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .api-evidence-table-wrap tr:has(.api-spec-no-direct) td {
+  background: rgba(255, 220, 0, 0.22);
+}
+
+/* Source-breakdown block on feature pages: backlog / spec / legacy, in priority order */
+.rm-sources { margin: 0; }
+.rm-sources__group { margin: 0 0 0.5rem 0; }
+.rm-sources__group:last-child { margin-bottom: 0; }
+.rm-sources__label { font-weight: 600; color: var(--md-default-fg-color--light); margin-right: 0.4rem; }
+.rm-backlog-id { display: inline-block; font-family: var(--md-code-font-family); font-size: 0.78rem;
+  background: var(--md-default-fg-color--lightest); border-radius: 0.3rem; padding: 0.05rem 0.4rem; margin: 0 0.2rem 0.2rem 0; }
+
+/* Per-product feature-composition table (product pages + traceability overview) */
+.rm-feature-map { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem 0; }
+.rm-feature-map th, .rm-feature-map td { vertical-align: top; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--md-default-fg-color--lightest); text-align: left; }
+.rm-feature-map__src { white-space: nowrap; }
+.rm-srcpill { display: inline-block; font-size: 0.7rem; border-radius: 0.3rem; padding: 0.03rem 0.35rem; margin: 0 0.15rem 0.15rem 0; color: #fff; }
+.rm-srcpill--backlog { background: #b8860b; }
+.rm-srcpill--spec    { background: #6b7280; }
+.rm-srcpill--legacy  { background: #8c5a2b; }
+.rm-srcpill--sql     { background: #3f6f8f; }
+
+/* Traceability matrix — table on source-document pages */
+.rm-traceability { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem 0; }
+.rm-traceability th, .rm-traceability td { vertical-align: top; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--md-default-fg-color--lightest); }
+.rm-traceability__section { font-weight: 600; white-space: nowrap; }
+.rm-traceability__type { color: var(--md-default-fg-color--light); font-size: 0.85em; margin-left: 0.25rem; }
+.rm-traceability__targets { margin: 0; padding-left: 1rem; }
+.rm-traceability__note { color: var(--md-default-fg-color--light); }
+.rm-traceability__heading { margin-top: 1.5rem; }
+
+/* Feature implementation status: planned (grey) / implemented (amber) / verified (green) */
+.tag--implstatus-planned     { background: #9e9e9e; color: #fff; }
+.tag--implstatus-implemented { background: #d4a017; color: #fff; }
+.tag--implstatus-verified    { background: #1a7f37; color: #fff; }
+
+/* C# build coverage: done (green) / partial (amber) / not-started (grey) */
+.tag--csharpstatus-done        { background: #1a7f37; color: #fff; }
+.tag--csharpstatus-partial     { background: #d4a017; color: #fff; }
+.tag--csharpstatus-not-started { background: #9e9e9e; color: #fff; }
+
+/* Requirement map */
+.req-map__toolbar {
+  display: grid;
+  grid-template-columns: minmax(13rem, 20rem) minmax(16rem, 1fr);
+  gap: 0.8rem;
+  align-items: end;
+  margin: 1rem 0;
+}
+.req-map__toolbar label {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: var(--md-default-fg-color--light);
+}
+.req-map__toolbar select,
+.req-map__toolbar input {
+  width: 100%;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.25rem;
+  padding: 0.48rem 0.6rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-default-fg-color);
+  min-height: 2.45rem;
+}
+.req-map__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.6rem, 1fr));
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.75rem;
+}
+.req-map__stat {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  padding: 0.58rem 0.7rem;
+  background: var(--md-code-bg-color);
+}
+.req-map__stat strong {
+  display: block;
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+.req-map__stat span {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.76rem;
+}
+.req-map__structure {
+  margin: 1rem 0 1.5rem;
+}
+.req-map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.35rem 0 0.6rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.78rem;
+}
+.req-map__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.req-map__dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+.req-map__dot--must { background: #1a7f37; }
+.req-map__dot--should { background: #d4a017; }
+.req-map__dot--could { background: #9e9e9e; }
+.req-map__dot--nfr { background: #6f42c1; }
+.req-map__product {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.35rem;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+.req-map__product > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--md-code-bg-color);
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+.req-map__product h3 {
+  margin: 0.1rem 0 0;
+}
+.req-map__product-meta {
+  margin: 0.35rem 0 0;
+}
+.req-map__product header span {
+  color: var(--md-default-fg-color--light);
+  white-space: nowrap;
+}
+.req-map__features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+.req-map__feature {
+  border-left: 3px solid #0969da;
+  padding-left: 0.65rem;
+  min-width: 0;
+}
+.req-map__feature h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.9rem;
+}
+.req-map__feature h4 span {
+  display: block;
+  font-weight: 500;
+  color: var(--md-default-fg-color);
+}
+.req-map__requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.req-map__req {
+  display: grid;
+  grid-template-columns: 7.2rem 1fr;
+  gap: 0.4rem;
+  align-items: start;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left-width: 0.25rem;
+  border-radius: 0.25rem;
+  padding: 0.35rem 0.45rem;
+  background: var(--md-code-bg-color);
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+.req-map__req--must { border-left-color: #1a7f37; }
+.req-map__req--should { border-left-color: #d4a017; }
+.req-map__req--could { border-left-color: #9e9e9e; }
+.req-map__req--nfr { box-shadow: inset 0 -2px 0 #6f42c1; }
+.req-map__req span {
+  color: var(--md-default-fg-color);
+}
+
+body.requirement-map-page .md-grid {
+  max-width: none;
+}
+body.requirement-map-page .md-content__inner {
+  margin-left: 1.2rem;
+  margin-right: 1.2rem;
+}
+.req-map {
+  zoom: 0.64;
+}
+.req-map__toggle {
+  display: inline-flex !important;
+  justify-content: start;
+  align-items: center;
+  gap: 0.5rem !important;
+  min-height: 2.45rem;
+  padding: 0.45rem 0;
+}
+.req-map__toggle input {
+  flex: 0 0 auto;
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  margin: 0;
+}
+.req-map__phases {
+  margin: 0.55rem 0 0.7rem;
+}
+.req-map__phases h2 {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+}
+.req-map__phase-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.55rem;
+}
+.req-map__phase {
+  display: grid;
+  gap: 0.15rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 0.22rem solid #c94242;
+  border-radius: 0.35rem;
+  padding: 0.48rem 0.6rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-default-fg-color);
+  text-align: left;
+  cursor: pointer;
+}
+.req-map__phase strong {
+  font-size: 0.78rem;
+}
+.req-map__phase span,
+.req-map__phase em {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.7rem;
+  font-style: normal;
+}
+.req-map__layout {
+  display: block;
+  margin-top: 0.65rem;
+}
+.req-map__graph-wrap {
+  overflow: visible;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  background: var(--md-code-bg-color);
+  min-height: 46rem;
+  width: 100%;
+}
+.req-map__graph-wrap svg {
+  display: block;
+  min-width: 100%;
+  max-width: none;
+}
+.req-map__edge {
+  fill: none;
+  stroke: #c94242;
+  stroke-width: 2.3;
+  opacity: 0.78;
+}
+.req-map__edge--trace {
+  stroke: #7591ad;
+  stroke-width: 1.9;
+  opacity: 0.48;
+}
+.req-map__edge--dependency {
+  stroke: #c94242;
+  stroke-width: 2.6;
+  opacity: 0.82;
+}
+.req-map__edge.is-muted {
+  opacity: 0.08;
+}
+.req-map__edge.is-highlight {
+  opacity: 1;
+  stroke-width: 3.8;
+}
+.req-map__node {
+  cursor: pointer;
+}
+.req-map__node.is-muted {
+  opacity: 0.22;
+}
+.req-map__node rect {
+  fill: #ffffff;
+  stroke: #276a8c;
+  stroke-width: 1.35;
+}
+.req-map__node--product rect {
+  fill: #fff8cc;
+  stroke: #8a6f00;
+  stroke-width: 1.8;
+}
+.req-map__node--feature rect {
+  fill: #e8f2fb;
+  stroke: #0078c8;
+  stroke-width: 1.5;
+}
+[data-md-color-scheme="slate"] .req-map__node rect {
+  fill: var(--md-default-bg-color);
+}
+.req-map__node--must rect { fill: #e8f4ed; }
+.req-map__node--should rect { fill: #fff4df; }
+.req-map__node--could rect { fill: #eef2f7; }
+.req-map__node--wont rect { fill: #fde8e8; }
+[data-md-color-scheme="slate"] .req-map__node--must rect,
+[data-md-color-scheme="slate"] .req-map__node--should rect,
+[data-md-color-scheme="slate"] .req-map__node--could rect,
+[data-md-color-scheme="slate"] .req-map__node--wont rect {
+  fill: var(--md-code-bg-color);
+}
+.req-map__node--nfr rect {
+  stroke: #6f42c1;
+}
+.req-map__node.is-selected rect {
+  stroke: #c94242;
+  stroke-width: 3;
+}
+.req-map__node-id {
+  font-size: 13px;
+  font-weight: 800;
+  fill: var(--md-default-fg-color);
+}
+.req-map__node-title {
+  font-size: 12px;
+  fill: var(--md-default-fg-color--light);
+}
+.req-map__node-badge {
+  font-size: 11px;
+  font-weight: 800;
+  fill: var(--md-default-fg-color--light);
+}
+.req-map__phase-label {
+  font-size: 13px;
+  font-weight: 800;
+  fill: var(--md-default-fg-color--light);
+}
+.req-map__line {
+  width: 1.2rem;
+  height: 0.12rem;
+  display: inline-block;
+  background: #c94242;
+}
+.req-map__line--trace { background: #7591ad; }
+.req-map__swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  display: inline-block;
+  border: 1px solid #276a8c;
+  border-radius: 0.2rem;
+}
+.req-map__swatch--product { background: #fff8cc; border-color: #8a6f00; }
+.req-map__swatch--feature { background: #e8f2fb; border-color: #0078c8; }
+.req-map__swatch--must { background: #e8f4ed; }
+.req-map__swatch--should { background: #fff4df; }
+.req-map__swatch--could { background: #eef2f7; }
+.req-map__swatch--nfr { border-color: #6f42c1; }
+/* C# build status — feature node left-border accents */
+.req-map__node--cs-done rect        { stroke: #1a7f37; stroke-width: 2.5; }
+.req-map__node--cs-partial rect     { stroke: #d4a017; stroke-width: 2.5; }
+.req-map__node--cs-not-started rect { stroke: #9e9e9e; stroke-width: 2.5; }
+/* C# build status — legend swatches */
+.req-map__swatch--cs-done        { background: #e8f4ed; border-color: #1a7f37; }
+.req-map__swatch--cs-partial     { background: #fff4df; border-color: #d4a017; }
+.req-map__swatch--cs-not-started { background: #f5f5f5; border-color: #9e9e9e; }
+[data-md-color-scheme="slate"] .req-map__swatch--cs-done        { background: var(--md-code-bg-color); border-color: #1a7f37; }
+[data-md-color-scheme="slate"] .req-map__swatch--cs-partial     { background: var(--md-code-bg-color); border-color: #d4a017; }
+[data-md-color-scheme="slate"] .req-map__swatch--cs-not-started { background: var(--md-code-bg-color); border-color: #9e9e9e; }
+.req-map__detail {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  padding: 0.75rem;
+  background: var(--md-code-bg-color);
+  margin-top: 0.9rem;
+  max-width: 68rem;
+}
+.req-map__detail h2 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+.req-map__detail p {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.78rem;
+}
+.req-map__detail dl {
+  display: grid;
+  grid-template-columns: 5.8rem minmax(0, 1fr);
+  gap: 0.38rem 0.58rem;
+  font-size: 0.76rem;
+}
+.req-map__detail dt {
+  font-weight: 700;
+  color: var(--md-default-fg-color--light);
+}
+.req-map__detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.req-map__parallel {
+  margin-top: 1rem;
+}
+.req-map__parallel > h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.req-map__parallel > p {
+  margin: 0 0 0.75rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.78rem;
+}
+.req-map__parallel-timeline {
+  display: grid;
+  gap: 0.85rem;
+  align-items: start;
+}
+.req-map__parallel-phase {
+  position: relative;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  background: var(--md-code-bg-color);
+  overflow: hidden;
+}
+.req-map__parallel-phase > header {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+.req-map__parallel-step {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  background: #c94242;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.req-map__parallel-phase h3 {
+  margin: 0;
+  font-size: 0.86rem;
+}
+.req-map__parallel-phase header p {
+  margin: 0.08rem 0 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+}
+.req-map__parallel-phase header strong {
+  margin-left: auto;
+  min-width: 1.7rem;
+  border-radius: 1rem;
+  padding: 0.08rem 0.4rem;
+  background: var(--md-default-fg-color--lightest);
+  text-align: center;
+  font-size: 0.72rem;
+}
+.req-map__parallel-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 0.6rem;
+}
+.req-map__parallel-lane {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.35rem;
+  background: var(--md-default-bg-color);
+  min-width: 0;
+  overflow: hidden;
+}
+.req-map__parallel-lane > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.42rem 0.55rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+.req-map__parallel-lane h4 {
+  margin: 0;
+  font-size: 0.76rem;
+}
+.req-map__parallel-lane > header span {
+  min-width: 1.4rem;
+  border-radius: 1rem;
+  padding: 0.04rem 0.35rem;
+  background: var(--md-default-fg-color--lightest);
+  text-align: center;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+.req-map__parallel-lane--must { border-top: 0.18rem solid #1a7f37; }
+.req-map__parallel-lane--should { border-top: 0.18rem solid #d4a017; }
+.req-map__parallel-lane--could { border-top: 0.18rem solid #9e9e9e; }
+.req-map__parallel-list {
+  display: grid;
+  gap: 0.42rem;
+  padding: 0.5rem;
+}
+.req-map__parallel-item {
+  display: grid;
+  gap: 0.16rem;
+  border: 1px solid #276a8c;
+  border-left-width: 0.25rem;
+  border-radius: 0.3rem;
+  padding: 0.4rem 0.5rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.req-map__parallel-item--must { border-left-color: #1a7f37; }
+.req-map__parallel-item--should { border-left-color: #d4a017; }
+.req-map__parallel-item--could { border-left-color: #9e9e9e; }
+.req-map__parallel-item strong {
+  font-size: 0.78rem;
+}
+.req-map__parallel-item small {
+  font-size: 0.74rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.req-map__parallel-item i {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+  font-style: normal;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.req-map__parallel-empty {
+  margin: 0;
+  padding: 0.5rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.72rem;
+}
+.req-map__gantt {
+  margin-top: 1.1rem;
+}
+.req-map__gantt > h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.req-map__gantt > p {
+  margin: 0 0 0.75rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.78rem;
+}
+.req-map__gantt-scale {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.35rem 0.35rem 0 0;
+  background: var(--md-code-bg-color);
+  overflow: hidden;
+}
+.req-map__gantt-scale-label {
+  display: flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0 0.65rem;
+  border-right: 1px solid var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.req-map__gantt-scale-track {
+  position: relative;
+  min-height: 1.65rem;
+}
+.req-map__gantt-scale-track span {
+  position: absolute;
+  inset-block: 0;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--md-default-fg-color--lightest);
+  padding-left: 0.35rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.req-map__gantt-rows {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-top: 0;
+  border-radius: 0 0 0.35rem 0.35rem;
+  overflow: hidden;
+}
+.req-map__gantt-phase {
+  display: block;
+  background: var(--md-default-bg-color);
+}
+.req-map__gantt-phase + .req-map__gantt-phase {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+.req-map__gantt-phase > header {
+  padding: 0.42rem 0.65rem;
+  background: var(--md-code-bg-color);
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.req-map__gantt-priority-row {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  min-height: 2.35rem;
+}
+.req-map__gantt-priority-row + .req-map__gantt-priority-row {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+.req-map__gantt-priority-row > span {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.65rem;
+  border-right: 1px solid var(--md-default-fg-color--lightest);
+  background: var(--md-code-bg-color);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.req-map__gantt-priority-row--must > span { color: #1a7f37; }
+.req-map__gantt-priority-row--should > span { color: #9a6700; }
+.req-map__gantt-priority-row--could > span { color: #6e7781; }
+.req-map__gantt-bars {
+  position: relative;
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.38rem 0;
+  min-height: 2.4rem;
+}
+.req-map__gantt-bar {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+  min-width: 5rem;
+  border: 1px solid #276a8c;
+  border-left-width: 0.24rem;
+  border-radius: 0.25rem;
+  padding: 0.18rem 0.35rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-default-fg-color);
+  font-size: 0.68rem;
+  line-height: 1.15;
+  text-align: left;
+  cursor: pointer;
+}
+.req-map__gantt-bar--must { border-left-color: #1a7f37; }
+.req-map__gantt-bar--should { border-left-color: #d4a017; }
+.req-map__gantt-bar--could { border-left-color: #9e9e9e; }
+.req-map__gantt-bar strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.req-map__gantt-bar span {
+  color: var(--md-default-fg-color--light);
+  flex: 0 0 auto;
+}
+
+/* Business kanban board */
+body.business-board-page .md-grid {
+  max-width: 96rem;
+}
+body.business-board-page .md-content__inner {
+  margin-right: 1.2rem;
+}
+.business-board__toolbar {
+  display: grid;
+  grid-template-columns: minmax(14rem, 24rem) minmax(18rem, 1fr);
+  gap: 0.9rem;
+  align-items: end;
+  margin: 1.25rem 0 1rem;
+}
+.business-board__toolbar label {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 600;
+  color: var(--md-default-fg-color--light);
+}
+.business-board__toolbar select,
+.business-board__toolbar input {
+  width: 100%;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.25rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-default-fg-color);
+  min-height: 2.6rem;
+}
+.business-board__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.65rem;
+  margin: 1rem 0 1.25rem;
+}
+.business-board__stat {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--md-code-bg-color);
+}
+.business-board__stat strong {
+  display: block;
+  font-size: 1.55rem;
+  line-height: 1.1;
+}
+.business-board__stat span {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.88rem;
+}
+.business-board__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+.business-board__column {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  background: var(--md-code-bg-color);
+  min-width: 0;
+  overflow: hidden;
+}
+.business-board__column > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+.business-board__column h2 {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+.business-board__count {
+  min-width: 1.6rem;
+  border-radius: 1rem;
+  padding: 0.1rem 0.45rem;
+  background: var(--md-default-fg-color--lightest);
+  text-align: center;
+  font-weight: 700;
+}
+.business-board__cards {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+.business-board__card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 0.25rem solid #9e9e9e;
+  border-radius: 0.35rem;
+  padding: 0.8rem;
+  background: var(--md-default-bg-color);
+  min-width: 0;
+}
+.business-board__card[hidden],
+.business-board__column[hidden] { display: none; }
+.business-board__column--done .business-board__card { border-left-color: #1a7f37; }
+.business-board__card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.8rem;
+}
+.business-board__card-head span {
+  color: var(--md-default-fg-color--light);
+}
+.business-board__card h3 {
+  margin: 0.4rem 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.business-board__products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.35rem 0 0.5rem;
+}
+.business-board__products a {
+  border-radius: 0.2rem;
+  padding: 0.1rem 0.35rem;
+  background: var(--md-default-fg-color--lightest);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.business-board__requirements {
+  display: grid;
+  gap: 0.3rem;
+}
+.business-board__req {
+  display: grid;
+  grid-template-columns: minmax(5.4rem, 6.4rem) minmax(0, 1fr);
+  gap: 0.42rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 0.2rem solid #9e9e9e;
+  border-radius: 0.25rem;
+  padding: 0.42rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  min-width: 0;
+}
+.business-board__req--must { border-left-color: #1a7f37; }
+.business-board__req--should { border-left-color: #d4a017; }
+.business-board__req--could { border-left-color: #9e9e9e; }
+.business-board__req span {
+  color: var(--md-default-fg-color);
+  overflow-wrap: anywhere;
+}
+.business-board__req em {
+  grid-column: 2;
+  color: var(--md-default-fg-color--light);
+  font-style: normal;
+}
+@media (max-width: 48rem) {
+  .req-map__toolbar,
+  .req-map__stats,
+  .req-map__parallel-lanes,
+  .business-board__toolbar,
+  .business-board__summary,
+  .business-board__columns {
+    grid-template-columns: 1fr;
+  }
+  .req-map__req,
+  .business-board__req {
+    grid-template-columns: 1fr;
+  }
+  .business-board__req em {
+    grid-column: auto;
+  }
+}
+
+/* Multi-line description fields in the meta block (Excel Alt+Enter line breaks). */
+.rm-meta__desc { white-space: pre-line; }
+
+/* Make sidebars scroll with the page instead of having their own scrollbar.
+   Only on viewports wide enough to show sidebars inline; on narrow screens
+   Material renders the navigation sidebar as a slide-in drawer which needs
+   its default fixed positioning. */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .md-sidebar__scrollwrap {
+    overflow: visible;
+    max-height: none;
+  }
+
+  .md-sidebar__inner {
+    overflow: visible;
+    max-height: none;
+    height: auto;
+  }
+}
+
+/* Features-estimation tables: tighter spacing + emphasised summary rows.
+   `table-layout: fixed` + colgroup gives every per-epic table identical
+   column widths, regardless of the longest feature title in that epic.
+   Long titles wrap; `overflow-wrap: anywhere` keeps single long words
+   (URLs, IDs) inside their cell.
+   Borders are restated here because `table-layout: fixed` + the
+   .rm-estimation namespace lose Material's default cell borders. */
+.rm-estimation table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.rm-estimation th,
+.rm-estimation td {
+  border: 0.05rem solid var(--md-typeset-table-color, var(--md-default-fg-color--lightest));
+  padding: 0.5em 0.75em;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+.rm-estimation thead th {
+  background: var(--md-default-fg-color--lightest);
+}
+.rm-estimation .rm-col-id    { width: 6rem; }
+.rm-estimation .rm-col-num   { width: 8rem; }
+/* `.rm-col-title` is unsized so it absorbs the remaining space. */
+.rm-estimation__featcount {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--md-default-fg-color--light);
+}
+.rm-estimation__subtotal td {
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  background: var(--md-code-bg-color);
+}
+.rm-estimation__total td {
+  background: var(--md-code-bg-color);
+}
+
+/* Contingency badges. Low = default 10–30 %; High = override 25–50 %. */
+.tag--contingency-low  { background: #1a7f37; color: #fff; }
+.tag--contingency-high { background: #d4a017; color: #fff; }
+
+/* Tests & Coverage card (rendered from reports/test-coverage/<layer>/<REQ>.json). */
+.rm-card--coverage { border-left: 4px solid #1a7f37; }
+.rm-cov__layer { margin-top: 1rem; text-transform: capitalize; }
+.rm-cov__ac { width: 100%; font-size: 0.85rem; }
+.rm-cov__ac td:nth-child(2) { text-align: center; font-weight: 700; white-space: nowrap; }
+.rm-cov__ac--ok  td:nth-child(2) { color: #1a7f37; }
+.rm-cov__ac--gap td:nth-child(2) { color: #d1242f; }
+.rm-cov__ac--gap { background: rgba(209, 36, 47, 0.06); }
+/* Out-of-scope: this AC is owned by another layer — neutral, not a gap. */
+.rm-cov__ac--na td:nth-child(2) { color: var(--md-default-fg-color--light); white-space: nowrap; }
+.rm-cov__ac--na { background: var(--md-default-fg-color--lightest); }
+.rm-cov__muted { color: var(--md-default-fg-color--light); font-weight: 400; }
+.rm-cov__report { margin-bottom: 0.2rem; }
+.rm-cov__report--gap { color: #d1242f; }
+
+/* Product dashboard: left product navigation + stacked per-product sections. */
+.rm-pd { display: flex; gap: 1.5rem; align-items: flex-start; }
+.rm-pd__nav {
+  flex: 0 0 17rem;
+  position: sticky;
+  top: 4rem;
+  align-self: flex-start;
+  max-height: calc(100vh - 5rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--md-default-fg-color--lightest);
+  padding-right: 0.75rem;
+}
+.rm-pd__nav-title {
+  font-weight: 700; text-transform: uppercase; font-size: 0.7rem;
+  letter-spacing: 0.08em; color: var(--md-default-fg-color--light); margin: 0 0 0.5rem;
+}
+.rm-pd__nav ul { list-style: none; margin: 0; padding: 0; }
+.rm-pd__nav li { margin: 0.15rem 0; }
+.rm-pd__nav a { font-size: 0.85rem; }
+.rm-pd__main { flex: 1 1 auto; min-width: 0; }
+/* Only the selected product is shown; the rest are hidden (toggled by product-dashboard.js). */
+.rm-pd__product { display: none; }
+.rm-pd__product.is-active { display: block; }
+.rm-pd__nav a.is-active { background: var(--md-default-fg-color--lightest); border-radius: 0.3rem; }
+.rm-pd__product h3 .rm-id { margin-left: 0.4rem; }
+.rm-pd__empty { color: var(--md-default-fg-color--light); }
+/* Let Material style the table (it only styles `table:not([class])`); add tweaks
+   via descendant selectors so the requirement tables keep the site look.
+   Force `display: table; width: 100%` so the table fits the column (no horizontal
+   scrollbar) instead of Material's default inline-block + overflow. The short
+   columns stay compact (nowrap); the Anforderung column wraps. */
+.rm-pd__product table {
+  display: table !important;   /* beat Material's `.md-typeset table:not([class])` inline-block */
+  width: 100% !important;      /* fit the column instead of overflowing (no horizontal scrollbar) */
+  table-layout: fixed;         /* identical column widths across both tables, regardless of content */
+  font-size: 0.8rem;
+}
+/* Material wraps every content table in `.md-typeset__scrollwrap > .md-typeset__table`,
+   and the inner wrapper is `display: inline-block` (shrink-to-fit). The table's
+   `width: 100%` then resolves against that shrunk box, so `table-layout: fixed` sizes
+   the table to just the sum of the sized columns and the flexible column collapses to
+   0 (Anforderung rendered one character per line). Force both wrappers to full-width
+   block so the table fills `.rm-pd__main`. */
+.rm-pd__product .md-typeset__scrollwrap,
+.rm-pd__product .md-typeset__table { display: block !important; width: 100% !important; overflow: visible; }
+/* Percentage column widths (sum 100) keep the product-specific and cross-cutting tables
+   aligned and, unlike rem widths, never depend on the root font scale or collapse a
+   column to 0 when the columns would otherwise overflow the available width. */
+.rm-pd__product th:nth-child(1) { width: 17%; }   /* ID (monospace, fits REQ-SEARCH-001) */
+.rm-pd__product th:nth-child(2) { width: 25%; }   /* Anforderung */
+.rm-pd__product th:nth-child(3) { width: 12%; }   /* Priorität */
+.rm-pd__product th:nth-child(4) { width: 14%; }   /* Quelle */
+.rm-pd__product th:nth-child(5) { width: 18%; }   /* Status (fits Umgesetzt) */
+.rm-pd__product th:nth-child(6) { width: 14%; }   /* Owner */
+.rm-pd__product td:nth-child(1),
+.rm-pd__product td:nth-child(3),
+.rm-pd__product td:nth-child(4),
+.rm-pd__product td:nth-child(5) { white-space: nowrap; }
+.rm-pd__product td:nth-child(2),
+.rm-pd__product td:nth-child(6) { white-space: normal; word-break: break-word; }
+.rm-pd__product td .tag { margin: 0; font-size: 0.6rem; padding: 0.08rem 0.4rem; }
+/* Implementation status badges. */
+.tag--impl-done        { background: #1a7f37; color: #fff; }
+.tag--impl-in-progress { background: #d4a017; color: #fff; }
+.tag--impl-open        { background: #9e9e9e; color: #fff; }
+/* The dashboard needs more horizontal room than Material's reading width — give the
+   page containing the dashboard the full content width so the table fits without a
+   horizontal scrollbar. */
+.md-grid:has(.rm-pd) { max-width: none; }
+.rm-pd__product table :is(td, th) { padding: 0.3rem 0.6rem; }
+
+/* Left-nav per-product progress: product name + % + a thin segment bar underneath. */
+/* Left-nav product cards: [code] box + name + two mini progress bars (specific / cross-cutting). */
+.rm-pd__navitem { margin: 0.35rem 0; }
+.rm-pd__navitem > a { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.3rem; }
+.rm-pd__code {
+  flex: 0 0 2rem; height: 2rem; display: flex; align-items: center; justify-content: center;
+  background: #ffdc00; color: #000; font-weight: 700; font-size: 0.62rem; border-radius: 0.25rem;
+}
+.rm-pd__navbody { flex: 1 1 auto; min-width: 0; }
+.rm-pd__navname { display: block; font-size: 0.7rem; font-weight: 600; line-height: 1.2; }
+.rm-pd__track { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.25rem; }
+.rm-pd__tracklabel { flex: 0 0 1.6rem; font-size: 0.58rem; color: var(--md-default-fg-color--light); }
+.rm-pd__navbar { position: relative; flex: 1 1 auto; height: 1.1rem; border-radius: 0.25rem; overflow: hidden; background: var(--md-default-fg-color--lightest); }
+.rm-pd__fill { position: absolute; inset: 0; display: flex; }
+/* Per-product count breakdown next to the bar: done · in progress · open,
+   tinted to match the bar segments so the yellow no longer reads as "done". */
+.rm-pd__counts { flex: 0 0 3.5rem; text-align: right; font-size: 0.62rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rm-pd__n--done { color: #1a7f37; }
+.rm-pd__n--prog { color: #a67c00; }
+.rm-pd__n--open { color: #6b6b6b; }
+.rm-pd__sep { color: var(--md-default-fg-color--lighter); margin: 0 0.15rem; }
+.rm-pd__seg--done { background: #1a7f37; }
+.rm-pd__seg--prog { background: #d4a017; }
+.rm-pd__seg--open { background: #9e9e9e; }
+
+/* In-content per-product trackers (spez. / cross), shown above the tables. */
+.rm-pd__ptrackers { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 0.25rem 0 1rem; }
+.rm-pd__ptrack { flex: 1 1 18rem; }
+.rm-pd__ptrack-head { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; }
+.rm-pd__pct { color: var(--md-default-fg-color--light); font-weight: 400; }
+.rm-pd__pbar { display: flex; height: 0.6rem; border-radius: 0.3rem; overflow: hidden; margin: 0.3rem 0; background: var(--md-default-fg-color--lightest); }
+.rm-pd__plegend { font-size: 0.72rem; color: var(--md-default-fg-color--light); }
+
+/* Sortable headers. */
+.rm-pd__product thead th { cursor: pointer; user-select: none; }
+.rm-pd__product thead th[data-sort="asc"]::after { content: " \25B2"; font-size: 0.7em; }
+.rm-pd__product thead th[data-sort="desc"]::after { content: " \25BC"; font-size: 0.7em; }
+@media (max-width: 76.25em) {
+  .rm-pd { display: block; }
+  .rm-pd__nav { position: static; max-height: none; border-right: none; padding-right: 0; margin-bottom: 1rem; }
+}

@@ -1,0 +1,20 @@
+environment: prod
+
+deployment:
+  # Number of replicas to run for the deployment.
+  replicas: 1
+
+container:
+  # Resource requests and limits for the container.
+  resources:
+    # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    limits:
+      cpu: 2000m # 2 phusical or virtual cores
+      memory: 2000Mi # 2 Gigabytes
+    requests:
+      cpu: 1000m
+      memory: 1000Mi
+
+appSettings:
+  AppConfiguration:
+    Endpoint: ''

@@ -1,0 +1,69 @@
+parameters:
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: URL
+    type: string
+    default: "http://localhost:3000"
+
+  - name: cachePath
+    type: string
+    default: /home/AzDevOps/.local/share/pnpm/store/
+
+  - name: testType
+    type: string
+
+  - name: previousStageName
+    type: string
+
+  - name: stageDisplayName
+    type: string
+
+  - name: stageName
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: variableGroup
+    type: string
+
+  - name: deploymentServiceConnection
+    type: string
+    default: "{service-connection}-dev"
+
+stages:
+  - stage: ${{parameters.stageName}}
+    displayName: ${{ parameters.stageDisplayName }}
+    dependsOn:
+      - ${{ parameters.previousStageName }}
+      - initialize
+    condition: |
+      and(
+        succeeded(),
+        or(
+          eq(variables['Build.SourceBranch'], 'refs/heads/develop'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/main')
+        )
+      )
+    variables:
+      - group: ${{ parameters.variableGroup }}
+
+    jobs:
+      - job:
+        displayName: Run ${{ parameters.stageDisplayName }}
+        steps:
+          - template: job-e2e-tests.yml
+            parameters:
+              stageDisplayName: ${{ parameters.stageDisplayName }}
+              previousStageName: ${{ parameters.previousStageName }}
+              environment: ${{ parameters.environment }}
+              frontendPath: ${{ parameters.frontendPath}}
+              cachePath: ${{ parameters.cachePath }}
+              testType: ${{ parameters.testType }}
+              URL: ${{ parameters.URL }}
+              managedIdentityName: $(managedIdentityName)
+              sqlServerName: $(sqlServerName)
+              sqlServerDatabaseName: $(sqlServerDatabaseName)
+              deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}

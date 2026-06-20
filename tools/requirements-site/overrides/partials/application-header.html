@@ -1,0 +1,68 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set lifecycle = page.meta.Lifecycle | default("") %}
+{% set time = page.meta.TIME | default("") %}
+{% set accountable_domain = page.meta["Accountable Domain"] | default("") %}
+{% set digital_platform = page.meta["Digital Platform"] | default("") %}
+{% set business_criticality = page.meta["Business Criticality"] | default("") %}
+{% set technical_fit = page.meta["Technical Fit"] | default("") %}
+{% set functional_fit = page.meta["Functional Fit"] | default("") %}
+{# Legacy hand-authored fields — kept defensive in case an application page
+   is ever manually authored with the older Owner/Status/Tech-stack schema. #}
+{% set legacy_owner = page.meta.owner | default("") %}
+{% set legacy_status = page.meta.status | default("") %}
+{% set legacy_tech_stack = page.meta.tech_stack | default("") %}
+
+<div class="rm-card rm-card--application md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">APPLICATION</span>
+    {# Applications source from a workbook whose only identifier is the
+       Display Name — id and title end up identical. Skip the id span when
+       they match so the card doesn't show "ANKE  ANKE" side-by-side. #}
+    {% if id and id != title %}<span class="rm-id">{{ id }}</span>{% endif %}
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+  {% if lifecycle or time or accountable_domain or digital_platform
+        or business_criticality or technical_fit or functional_fit
+        or legacy_owner or legacy_status or legacy_tech_stack %}
+  <dl class="rm-meta">
+    {% if lifecycle %}<dt>Lifecycle</dt><dd><span class="tag tag--appstatus tag--appstatus-{{ lifecycle }}">{{ lifecycle }}</span></dd>{% endif %}
+    {% if time %}<dt>TIME</dt><dd>{{ time }}</dd>{% endif %}
+    {% if accountable_domain %}<dt>Accountable Domain</dt><dd>{{ accountable_domain }}</dd>{% endif %}
+    {% if digital_platform %}<dt>Digital Platform</dt><dd>{{ digital_platform }}</dd>{% endif %}
+    {% if business_criticality %}<dt>Business Criticality</dt><dd>{{ business_criticality }}</dd>{% endif %}
+    {% if technical_fit %}<dt>Technical Fit</dt><dd>{{ technical_fit }}</dd>{% endif %}
+    {% if functional_fit %}<dt>Functional Fit</dt><dd>{{ functional_fit }}</dd>{% endif %}
+    {% if legacy_owner %}<dt>Owner</dt><dd>{{ legacy_owner }}</dd>{% endif %}
+    {% if legacy_status %}<dt>Status</dt><dd><span class="tag tag--appstatus tag--appstatus-{{ legacy_status }}">{{ legacy_status }}</span></dd>{% endif %}
+    {% if legacy_tech_stack %}
+      <dt>Tech stack</dt>
+      <dd>
+        {% if legacy_tech_stack is string %}
+          {{ legacy_tech_stack }}
+        {% else %}
+          {% for item in legacy_tech_stack %}<span class="tag tag--tech">{{ item }}</span>{% endfor %}
+        {% endif %}
+      </dd>
+    {% endif %}
+  </dl>
+  {% endif %}
+
+  {% with target_id=id, xref_type="feature", field="System", heading="Referenced as System by Features" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="feature", field="Accountable", heading="Referenced as Accountable by Features" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="feature", field="Supported", heading="Referenced as Supported by Features" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="requirement", field="applications", heading="Linked Requirements" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

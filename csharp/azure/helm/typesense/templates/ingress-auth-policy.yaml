@@ -1,0 +1,14 @@
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "release.fullname" . }}-auth-ing
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: {{ include "release.fullname" . }}-server
+  requiredAuthenticationRefs:
+    - name: {{ include "release.fullname" . }}-ing-meshauth
+      kind: MeshTLSAuthentication
+      group: policy.linkerd.io

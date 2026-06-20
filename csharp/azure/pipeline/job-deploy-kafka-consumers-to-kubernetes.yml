@@ -1,0 +1,133 @@
+parameters:
+  - name: artifactName
+    type: string
+
+  - name: deploymentServiceConnection
+    type: string
+
+  - name: stageName
+    type: string
+
+  - name: environment
+    type: string
+
+  # Specifies the helm version to install on the agent.
+  - name: helmVersionToInstall
+    type: string
+    default: latest
+
+  - name: helmChartName
+    type: string
+
+  - name: acrName
+    type: string
+
+  - name: kubernetesCluster
+    type: string
+
+  - name: kubernetesClusterResourceGroup
+    type: string
+
+  - name: kubernetesClusterSubscription
+    type: string
+
+  - name: kubernetesNamespace
+    type: string
+
+  - name: kubernetesTenant
+    type: string
+
+  - name: acrServiceConnection
+    type: string
+
+jobs:
+  - deployment: deploy_kafka_consumers_to_kubernetes
+    displayName: Deploy Kafka Consumers to Kubernetes
+    environment: ${{ parameters.environment }}
+    dependsOn:
+      - create_federated_credentials
+    strategy:
+      runOnce:
+        # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs?view=azure-devops#descriptions-of-lifecycle-hooks
+        deploy:
+          steps:
+            - checkout: none
+
+            - download: current
+              artifact: ${{ parameters.artifactName }}
+              displayName: Download Helm Chart Artifacts
+
+            - script: |
+                echo "##[debug] Parameters:"
+                echo "##[debug] ACR Name: ${{ parameters.acrName }}"
+                echo "##[debug] ACR Service Connection: ${{ parameters.acrServiceConnection }}"
+                echo "##[debug] Deployment Service Connection: ${{ parameters.deploymentServiceConnection }}"
+                echo "##[debug] Environment: ${{ parameters.environment }}"
+                echo "##[debug] Helm Version to Install: ${{ parameters.helmVersionToInstall }}"
+                echo "##[debug] Kubernetes Cluster Resource Group: ${{ parameters.kubernetesClusterResourceGroup }}"
+                echo "##[debug] Kubernetes Cluster Subscription: ${{ parameters.kubernetesClusterSubscription }}"
+                echo "##[debug] Kubernetes Cluster: ${{ parameters.kubernetesCluster }}"
+                echo "##[debug] Kubernetes Namespace: ${{ parameters.kubernetesNamespace }}"
+                echo "##[debug] Stage Name: ${{ parameters.stageName }}"
+              displayName: "Prep: Deploy Typesense to Kubernetes"
+
+            - task: HelmInstaller@1
+              displayName: Helm Installer
+              inputs:
+                helmVersionToInstall: ${{ parameters.helmVersionToInstall }}
+                installKubectl: false
+
+            # Log in to the Kubernetes cluster.
+            - template: job-kubernetes-login.yml
+              parameters:
+                kubernetesCluster: ${{ parameters.kubernetesCluster }}
+                kubernetesClusterResourceGroup: ${{ parameters.kubernetesClusterResourceGroup }}
+                kubernetesClusterSubscription: ${{ parameters.kubernetesClusterSubscription }}
+                deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+
+            - task: AzureCLI@2
+              displayName: Login to ACR
+              inputs:
+                azureSubscription: ${{ parameters.acrServiceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  az acr login --name ${{ parameters.acrName }}
+
+            # Helm can run into issues if the namespace is not created when installing the application, so it's safer to create it before the deployment.
+            - task: AzureCLI@2
+              displayName: Create Namespace
+              inputs:
+                azureSubscription: ${{ parameters.deploymentServiceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  kubectl create namespace "${{ parameters.kubernetesNamespace }}" --dry-run=client -o yaml | kubectl apply -f -
+
+            # Install the application using helm.
+            # We provide two values files, one for the global, and one for the stage specific values
+            # if a property is in both value files, the last value file provided to the helm command takes prcedence
+            # We can also provide runtime parameters using --set. This can be done multiple times.
+            - task: AzureCLI@2
+              displayName: Deploy Helm Chart
+              retryCountOnTaskFailure: 3
+              inputs:
+                azureSubscription: ${{ parameters.deploymentServiceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                addSpnToEnvironment: true
+                inlineScript: |
+                  # set -x is used to print the commands before they are executed, which is very useful for debugging.
+                  set -x
+
+                  helm upgrade ${{ parameters.helmChartName }} \
+                    oci://${{ parameters.acrName }}.azurecr.io/${{ parameters.kubernetesTenant }}/helm/${{ parameters.helmChartName }} \
+                    --version=$(Build.BuildNumber) \
+                    --values "$(Agent.BuildDirectory)/${{ parameters.artifactName }}/values.yaml" \
+                    --values "$(Agent.BuildDirectory)/${{ parameters.artifactName }}/values-${{ parameters.stageName }}.yaml" \
+                    --install \
+                    --namespace ${{ parameters.kubernetesNamespace }} \
+                    --set container.imageVersion="$(Build.SourceVersion)" \
+                    --set overRuntimeValue="dummy" \
+                    --timeout 10m00s \
+                    --wait

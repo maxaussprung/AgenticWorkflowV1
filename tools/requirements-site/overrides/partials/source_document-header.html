@@ -1,0 +1,131 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set file = page.meta.file | default("") %}
+{% set official = page.meta.official | default(false) %}
+{% set version = page.meta.version | default("") %}
+{% set source_date = page.meta.date | default("") %}
+
+<div class="rm-card rm-card--source_document md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">SOURCE</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+
+  {% if official or version or source_date or file %}
+  <dl class="rm-meta">
+    {% if official %}<dt>Status</dt><dd><span class="tag tag--source-official">Official</span></dd>{% endif %}
+    {% if version %}<dt>Version</dt><dd>{{ version }}</dd>{% endif %}
+    {% if source_date %}<dt>Date</dt><dd>{{ source_date }}</dd>{% endif %}
+    {% if file %}<dt>Download</dt><dd><a href="{{ base_url }}/{{ file }}" download>{{ file.split('/') | last }}</a></dd>{% endif %}
+  </dl>
+  {% endif %}
+
+  {# Auto-generated traceability matrix.
+     Scan every typed page for a `source:` list containing entries of the
+     form `{document: <this id>, section: <chapter>}`. Pages whose `source`
+     is a bare string (legacy form) don't participate in the matrix — they
+     still render their source text on their own card. #}
+  {% set rows = [] %}
+  {% for type_name in ['product', 'feature', 'requirement', 'test_case'] %}
+    {% for entry_id, entry in (xref.get(type_name, {})).items() %}
+      {% set src = entry.meta.source | default([]) %}
+      {% if src is mapping %}{% set src = [src] %}{% endif %}
+      {% if src is iterable and src is not string %}
+        {% for s in src %}
+          {% if s is mapping and s.document == id %}
+            {% set _ = rows.append({
+                'section': s.section | default(''),
+                'type': type_name,
+                'id': entry_id,
+                'title': entry.title,
+                'url': entry.url,
+                'note': s.note | default('')
+            }) %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+
+  <h2 class="rm-traceability__heading">Traceability</h2>
+  {% if rows %}
+    {% set sections_seen = [] %}
+    {% set grouped = {} %}
+    {% for row in rows %}
+      {% if row.section not in sections_seen %}{% set _ = sections_seen.append(row.section) %}{% endif %}
+      {% set _ = grouped.setdefault(row.section, []).append(row) %}
+    {% endfor %}
+    <table class="rm-traceability">
+      <thead>
+        <tr><th>Section</th><th>Mapped to</th></tr>
+      </thead>
+      <tbody>
+      {% for section in sections_seen %}
+        <tr>
+          <td class="rm-traceability__section">{{ section if section else "(unspecified)" }}</td>
+          <td>
+            <ul class="rm-traceability__targets">
+            {% for row in grouped[section] %}
+              <li>
+                <a href="{{ base_url }}/{{ row.url }}"><strong>{{ row.id }}</strong></a> — {{ row.title }}
+                <span class="rm-traceability__type">({{ row.type }})</span>
+                {% if row.note %}<br><em class="rm-traceability__note">{{ row.note }}</em>{% endif %}
+              </li>
+            {% endfor %}
+            </ul>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p><em>No pages reference this source document yet.</em></p>
+  {% endif %}
+
+  {# Spec section coverage matrix — shown when the build hook has loaded a spec-section-index.yaml
+     for this source document (cross_refs.py: _SPEC_SOURCE_ID must match this document's id).
+     Report-only for now; a future --strict gate will fail on uncovered required leaves. #}
+  {% if spec_coverage and spec_coverage.sections %}
+    {% set st = spec_coverage.stats %}
+    <h2 class="rm-traceability__heading">Spec section coverage</h2>
+    <p class="rm-cov-summary">
+      <strong>{{ st.covered }} / {{ st.required }}</strong> required leaf sections covered
+      (<strong>{{ st.pct }}%</strong>){% if st.uncovered %} — {{ st.uncovered }} still uncovered{% endif %}.
+      Informational/overview sections are excluded from the denominator.
+    </p>
+    <table class="rm-traceability rm-spec-cov">
+      <thead>
+        <tr><th>§</th><th>Section</th><th>Status</th><th>Covered by</th></tr>
+      </thead>
+      <tbody>
+      {% for s in spec_coverage.sections %}
+        <tr class="rm-spec-cov__row{% if not s.leaf %} rm-spec-cov__row--parent{% endif %}">
+          <td class="rm-traceability__section"><code>{{ s.id }}</code></td>
+          <td>{{ s.title }}</td>
+          <td>
+            {% if s.expectation == "informational" %}
+              <span class="tag tag--cov-informational">info</span>
+            {% elif s.covered %}
+              <span class="tag tag--cov-covered">covered</span>
+            {% else %}
+              <span class="tag tag--cov-uncovered">uncovered</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if s.citers %}
+              <ul class="rm-traceability__targets">
+              {% for c in s.citers %}
+                <li><a href="{{ base_url }}/{{ c.url }}"><strong>{{ c.id }}</strong></a> — {{ c.title }} <span class="rm-traceability__type">({{ c.type }})</span></li>
+              {% endfor %}
+              </ul>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% include "partials/change-history.html" %}
+</div>

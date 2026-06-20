@@ -1,0 +1,30 @@
+# Git submodules for this project.
+#
+# This template ships with NO active submodules. The entries below are COMMENTED-OUT
+# EXAMPLES showing the convention the framework expects: vendor external repos in as
+# submodules under the directories the docs reference (the active client/delivery code,
+# the frozen legacy codebase, and the legacy SQL database).
+#
+# To use one: uncomment its block, replace the {PLACEHOLDER} values
+# (see docs/architecture/project-placeholders.md), then run:
+#   git submodule add <url> <path>     # first time, OR
+#   git submodule update --init        # after cloning a repo that already declares them
+#
+# Leave this file with everything commented out if your project vendors nothing.
+
+# --- Active client / delivery codebase (the existing implementation you extend) ---
+# [submodule "csharp/{CLIENT-REPO-NAME}"]
+# 	path = csharp/{CLIENT-REPO-NAME}
+# 	url = {CLIENT-REPO-URL}
+# 	branch = {CLIENT-REPO-BRANCH}
+
+# --- Legacy codebase being migrated away from (frozen, read-only reference) ---
+# [submodule "to_be_migrated_repo/{LEGACY-CODEBASE-DIR}"]
+# 	path = to_be_migrated_repo/{LEGACY-CODEBASE-DIR}
+# 	url = {LEGACY-CODEBASE-REPO-URL}
+# 	branch = {LEGACY-CODEBASE-BRANCH}
+
+# --- Legacy SQL database reference (frozen, read-only) ---
+# [submodule "legacy-sql/{LEGACY-DB-NAME}"]
+# 	path = legacy-sql/{LEGACY-DB-NAME}
+# 	url = {LEGACY-DB-REPO-URL}

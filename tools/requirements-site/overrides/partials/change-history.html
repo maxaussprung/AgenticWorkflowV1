@@ -1,0 +1,15 @@
+{#- Render the page's change_history field (a list of strings), if any, as a
+    "Change history" sub-section. Each entry already starts with a bold ISO
+    date by convention (see AGENTS.md → Change history convention), so we
+    pass it through `markdown` to keep that formatting and any inline
+    backticks/links inside the entry. Newest entry is at the bottom of the
+    list — we don't reverse, on purpose. -#}
+{% set entries = page.meta.change_history | default([]) %}
+{% if entries %}
+  <h2 class="rm-meta__sub">Change history</h2>
+  <ul class="rm-link-list rm-change-history">
+    {% for entry in entries %}
+      <li>{{ entry | string | markdown | safe }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}

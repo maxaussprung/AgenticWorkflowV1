@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "release.fullname" . }}-deployment
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "release.fullname" . }}
+  replicas: {{ .Values.deployment.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "release.fullname" . }}
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ include "release.fullname" . }}-sa
+      containers:
+      - name: {{ .Values.container.name }}
+        image: "{{ .Values.container.image }}/{{ .Values.environment }}:{{ .Values.container.imageVersion }}"
+        imagePullPolicy: Always
+        # env:
+        #   {{ range $k, $v := .Values.environmentVariables }}
+        #     - name: {{ $k | quote }}
+        #       value: {{ $v | quote }}
+        #   {{- end }}
+        ports:
+        - containerPort: {{ .Values.container.port }}
+        resources:
+          {{- toYaml .Values.container.resources | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: /api/health/live
+            port: 3000
+          initialDelaySeconds: 180
+          periodSeconds: 60
+        livenessProbe:
+          httpGet:
+            path: /api/health/live
+            port: 3000
+          initialDelaySeconds: 180
+          periodSeconds: 60
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - all

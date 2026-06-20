@@ -1,0 +1,119 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set priority = page.meta.Priority | default(page.meta.priority | default(0)) %}
+{% set spec_codes = page.meta.spec_codes | default([]) %}
+{% set mapping_confidence = page.meta.mapping_confidence | default("") %}
+{% set mapping_note = page.meta.mapping_note | default("") %}
+{% set source = page.meta.source | default("") %}
+{% set system = page.meta.System | default("") %}
+{% set tags = page.meta.tags | default([]) %}
+{% set change_history = page.meta.change_history | default([]) %}
+{% set apps = (xref | default({})).get("application", {}) %}
+
+{#- Rollup source tier: the highest tier among this product's features
+    (gold > silver > bronze). Computed live so it never goes stale. -#}
+{% set _tier_rank = {"bronze": 1, "silver": 2, "gold": 3} %}
+{% set rollup = namespace(rank=0, tier="") %}
+{% for _fid, _f in (xref | default({})).get("feature", {}).items() %}
+  {%- set _prod = _f.meta.get("Product") -%}
+  {%- if _prod -%}
+    {%- set _toks = _prod.split(",") if _prod is string else _prod -%}
+    {%- set _norm = [] -%}
+    {%- for _t in _toks -%}{%- set _ = _norm.append((_t | string).strip()) -%}{%- endfor -%}
+    {%- if id in _norm -%}
+      {%- set _r = _tier_rank.get(_f.meta.get("source_tier", ""), 0) -%}
+      {%- if _r > rollup.rank -%}{%- set rollup.rank = _r -%}{%- set rollup.tier = _f.meta.get("source_tier", "") -%}{%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{% endfor %}
+
+<div class="rm-card rm-card--product md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">PRODUCT</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+
+  {% if priority or spec_codes or mapping_confidence or source or system or tags or rollup.tier %}
+  <dl class="rm-meta">
+    {% if priority %}<dt>Priority</dt><dd><span class="tag tag--priority-{{ priority }}">Priority {{ priority }}</span></dd>{% endif %}
+    {% if rollup.tier %}<dt>Highest Source</dt><dd><span class="tag tag--source-tier-{{ rollup.tier }}">{{ rollup.tier | upper }}</span> <span class="rm-note">highest source tier across this product's features</span></dd>{% endif %}
+    {% if spec_codes %}
+      <dt>Spec Codes</dt>
+      <dd>
+        {% set _code_items = [spec_codes] if spec_codes is string else spec_codes %}
+        {% for code in _code_items %}<span class="tag tag--speccode">{{ code }}</span>{% endfor %}
+      </dd>
+    {% endif %}
+    {% if mapping_confidence %}
+      <dt>Mapping</dt>
+      <dd>
+        <span class="tag tag--mapping-{{ mapping_confidence }}">{{ mapping_confidence }}</span>
+        {% if mapping_note %}<span class="rm-note">{{ mapping_note }}</span>{% endif %}
+      </dd>
+    {% endif %}
+    {% if source %}
+      <dt>Source</dt>
+      <dd>
+        {% if source is string %}
+          {{ source }}
+        {% else %}
+          {% set _src_items = [source] if source is mapping else source %}
+          <ul class="rm-source-list">
+          {% for s in _src_items %}
+            <li>
+              {% if s is mapping %}
+                {% set _doc = (xref.get('source-document', {})).get(s.document) %}
+                {% if _doc %}<a href="{{ base_url }}/{{ _doc.url }}">{{ s.document }}</a>{% else %}{{ s.document }}{% endif %}
+                {% if s.section %} — {{ s.section }}{% endif %}
+              {% else %}
+                {{ s }}
+              {% endif %}
+            </li>
+          {% endfor %}
+          </ul>
+        {% endif %}
+      </dd>
+    {% endif %}
+    {% if system %}
+      <dt>System</dt>
+      <dd>
+        {% set _sys_items = [] %}
+        {% if system is string %}
+          {% for chunk in system.split(',') %}
+            {% set _t = chunk.strip() %}
+            {% if _t %}{% set _ = _sys_items.append(_t) %}{% endif %}
+          {% endfor %}
+        {% else %}
+          {% for raw in system %}
+            {% set _t = (raw | string).strip() %}
+            {% if _t %}{% set _ = _sys_items.append(_t) %}{% endif %}
+          {% endfor %}
+        {% endif %}
+        {% for name in _sys_items -%}
+          {% set _app = apps.get(name) %}
+          {% if _app %}<a href="{{ base_url }}/{{ _app.url }}">{{ name }}</a>{% else %}{{ name }}{% endif %}
+          {%- if not loop.last %}, {% endif %}
+        {%- endfor %}
+      </dd>
+    {% endif %}
+    {% if tags %}
+      <dt>Tags</dt>
+      <dd>
+        {% set _tag_items = [tags] if tags is string else tags %}
+        {% for t in _tag_items %}<span class="tag tag--reqtag">{{ t }}</span>{% endfor %}
+      </dd>
+    {% endif %}
+  </dl>
+  {% endif %}
+
+  {% with target_id=id, heading="Features &amp; Sources" %}
+    {% include "partials/product-feature-map.html" %}
+  {% endwith %}
+
+  {% with ids_raw=page.meta.decisions|default([]), xref_type="decision", heading="Governed by Decisions" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

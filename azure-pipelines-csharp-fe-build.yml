@@ -1,0 +1,197 @@
+# Repo-owned build validation for csharp/src/frontend.
+# Keep this outside csharp/ because that subtree is synchronized to the client repository.
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - .sonarcloud.properties
+      - azure-pipelines-csharp-fe-build.yml
+      - csharp/src/frontend/**
+    exclude:
+      - "**/*.md"
+
+pr:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - .sonarcloud.properties
+      - azure-pipelines-csharp-fe-build.yml
+      - csharp/src/frontend/**
+    exclude:
+      - "**/*.md"
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  frontendRoot: $(Build.SourcesDirectory)/csharp/src/frontend
+  pnpmStorePath: $(Pipeline.Workspace)/.pnpm-store
+  # SonarCloud uses token auth here because this repo cannot create Azure service connections.
+  # Required pipeline variables: SONAR_TOKEN (secret), SONAR_CLOUD_ORGANIZATION,
+  # SONAR_CLOUD_FRONTEND_PROJECT_KEY. Optional: SONAR_CLOUD_FRONTEND_PROJECT_NAME.
+  # npm feed: NPM_{PROJECT}_USERNAME, NPM_{PROJECT}_CLEAR_TEXT_PASSWORD
+  # Replace {PROJECT} with your project identifier.
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: NodeTool@0
+    displayName: Install Node.js
+    inputs:
+      versionSpec: 18.19.1
+
+  - task: Cache@2
+    displayName: Cache pnpm store
+    inputs:
+      key: 'pnpm | "$(Agent.OS)" | csharp/src/frontend/pnpm-lock.yaml'
+      restoreKeys: |
+        pnpm | "$(Agent.OS)"
+      path: $(pnpmStorePath)
+
+  - task: Bash@3
+    displayName: Install frontend dependencies
+    inputs:
+      targetType: inline
+      workingDirectory: $(frontendRoot)
+      script: |
+        set -euo pipefail
+        # Replace NPM_PROJECT_USERNAME / NPM_PROJECT_CLEAR_TEXT_PASSWORD with your project's variable names.
+        if [ -z "${NPM_PROJECT_USERNAME:-}" ] || [ -z "${NPM_PROJECT_CLEAR_TEXT_PASSWORD:-}" ]; then
+          echo "##vso[task.logissue type=error]Set NPM_{PROJECT}_USERNAME and NPM_{PROJECT}_CLEAR_TEXT_PASSWORD pipeline variables before running this pipeline."
+          exit 1
+        fi
+        if [[ "$NPM_PROJECT_USERNAME" == \$\(* ]] || [[ "$NPM_PROJECT_CLEAR_TEXT_PASSWORD" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]npm credentials were not expanded. Check that both pipeline variables exist and that any variable group is authorized for this pipeline."
+          exit 1
+        fi
+        NPM_PAT_BASE64="$(printf '%s' "$NPM_PROJECT_CLEAR_TEXT_PASSWORD" | base64 | tr -d '\n')"
+        cat > .npmrc <<EOF
+        registry=https://registry.npmjs.org/
+        @{project}:registry=https://pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/registry/
+        always-auth=true
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/registry/:username=$NPM_PROJECT_USERNAME
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/registry/:_password=$NPM_PAT_BASE64
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/registry/:email=$NPM_PROJECT_USERNAME
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/registry/:always-auth=true
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/:username=$NPM_PROJECT_USERNAME
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/:_password=$NPM_PAT_BASE64
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/:email=$NPM_PROJECT_USERNAME
+        //pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/npm/:always-auth=true
+        EOF
+        corepack enable
+        corepack prepare pnpm@8.9.2 --activate
+        pnpm config set store-dir "$(pnpmStorePath)"
+        pnpm install --frozen-lockfile --fetch-retry-mintimeout 1000000 --fetch-retry-maxtimeout 6000000
+    env:
+      HUSKY: 0
+      NPM_PROJECT_USERNAME: $(NPM_PROJECT_USERNAME)
+      NPM_PROJECT_CLEAR_TEXT_PASSWORD: $(NPM_PROJECT_CLEAR_TEXT_PASSWORD)
+
+  - task: Bash@3
+    displayName: Lint frontend
+    inputs:
+      targetType: inline
+      workingDirectory: $(frontendRoot)
+      script: |
+        set -euo pipefail
+        pnpm lint
+
+  - task: Bash@3
+    displayName: Typecheck frontend
+    inputs:
+      targetType: inline
+      workingDirectory: $(frontendRoot)
+      script: |
+        set -euo pipefail
+        pnpm typecheck
+
+  - task: Bash@3
+    displayName: Build frontend
+    inputs:
+      targetType: inline
+      workingDirectory: $(frontendRoot)
+      script: |
+        set -euo pipefail
+        pnpm build
+
+  - task: Bash@3
+    displayName: Run frontend unit tests
+    inputs:
+      targetType: inline
+      workingDirectory: $(frontendRoot)
+      script: |
+        set -euo pipefail
+        pnpm test:ci
+
+  - task: PublishTestResults@2
+    displayName: Publish frontend unit test results
+    condition: succeededOrFailed()
+    inputs:
+      failTaskOnFailedTests: false
+      testResultsFiles: $(frontendRoot)/reports/coverage/junit.xml
+      testResultsFormat: JUnit
+      testRunTitle: Frontend Unit Tests
+
+  - task: PublishCodeCoverageResults@2
+    displayName: Publish frontend coverage
+    condition: succeededOrFailed()
+    inputs:
+      failIfCoverageEmpty: false
+      summaryFileLocation: $(frontendRoot)/reports/coverage/cobertura-coverage.xml
+
+  - task: NodeTool@0
+    displayName: Install Node.js for SonarCloud scan
+    condition: succeeded()
+    inputs:
+      versionSpec: 20.x
+
+  - task: Bash@3
+    displayName: Run SonarCloud frontend analysis
+    condition: succeeded()
+    inputs:
+      targetType: inline
+      workingDirectory: $(Build.SourcesDirectory)
+      script: |
+        set -euo pipefail
+        if [ -z "${SONAR_TOKEN:-}" ] || [[ "$SONAR_TOKEN" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]Set SONAR_TOKEN as a secret pipeline variable before running SonarCloud analysis."
+          exit 1
+        fi
+        if [ -z "${SONAR_CLOUD_ORGANIZATION:-}" ] || [[ "$SONAR_CLOUD_ORGANIZATION" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]Set SONAR_CLOUD_ORGANIZATION as a pipeline variable before running SonarCloud analysis."
+          exit 1
+        fi
+        if [ -z "${SONAR_CLOUD_FRONTEND_PROJECT_KEY:-}" ] || [[ "$SONAR_CLOUD_FRONTEND_PROJECT_KEY" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]Set SONAR_CLOUD_FRONTEND_PROJECT_KEY as a pipeline variable before running SonarCloud analysis."
+          exit 1
+        fi
+        if [ -z "${SONAR_CLOUD_FRONTEND_PROJECT_NAME:-}" ] || [[ "$SONAR_CLOUD_FRONTEND_PROJECT_NAME" == \$\(* ]]; then
+          SONAR_CLOUD_FRONTEND_PROJECT_NAME="$SONAR_CLOUD_FRONTEND_PROJECT_KEY"
+        fi
+
+        npx --yes @sonar/scan \
+          "-Dsonar.projectKey=$SONAR_CLOUD_FRONTEND_PROJECT_KEY" \
+          "-Dsonar.organization=$SONAR_CLOUD_ORGANIZATION" \
+          "-Dsonar.projectName=$SONAR_CLOUD_FRONTEND_PROJECT_NAME" \
+          "-Dsonar.host.url=https://sonarcloud.io" \
+          "-Dsonar.token=$SONAR_TOKEN" \
+          "-Dsonar.projectBaseDir=$(Build.SourcesDirectory)" \
+          "-Dsonar.sourceEncoding=UTF-8" \
+          "-Dsonar.sources=csharp/src/frontend/src" \
+          "-Dsonar.tests=csharp/src/frontend/src" \
+          "-Dsonar.test.inclusions=csharp/src/frontend/src/**/*.test.ts,csharp/src/frontend/src/**/*.test.tsx,csharp/src/frontend/src/**/__tests__/**/*.ts,csharp/src/frontend/src/**/__tests__/**/*.tsx" \
+          "-Dsonar.exclusions=csharp/src/backend/**,csharp/test/backend/**,csharp/src/frontend/src/**/*.d.ts,csharp/src/frontend/src/**/*.png,csharp/src/frontend/src/**/*.jpg,csharp/src/frontend/src/**/*.jpeg,csharp/src/frontend/src/**/*.gif,csharp/src/frontend/src/**/*.webp,csharp/src/frontend/src/**/*.ico,csharp/src/frontend/**/Dockerfile,csharp/src/frontend/**/Dockerfile.*,csharp/src/frontend/**/*.yml,csharp/src/frontend/**/*.yaml,csharp/src/frontend/.next/**,csharp/src/frontend/node_modules/**,csharp/src/frontend/public/**,csharp/src/frontend/reports/**,csharp/src/frontend/tests/**" \
+          "-Dsonar.coverage.exclusions=csharp/src/frontend/src/**/*.d.ts,csharp/src/frontend/src/**/*.test.ts,csharp/src/frontend/src/**/*.test.tsx,csharp/src/frontend/src/**/__tests__/**,csharp/src/frontend/src/**/styles.ts,csharp/src/frontend/src/**/index.ts" \
+          "-Dsonar.javascript.lcov.reportPaths=csharp/src/frontend/reports/coverage/lcov.info" \
+          "-Dsonar.typescript.tsconfigPath=csharp/src/frontend/tsconfig.json"
+    env:
+      SONAR_TOKEN: $(SONAR_TOKEN)
+      SONAR_CLOUD_ORGANIZATION: $(SONAR_CLOUD_ORGANIZATION)
+      SONAR_CLOUD_FRONTEND_PROJECT_KEY: $(SONAR_CLOUD_FRONTEND_PROJECT_KEY)
+      SONAR_CLOUD_FRONTEND_PROJECT_NAME: $(SONAR_CLOUD_FRONTEND_PROJECT_NAME)

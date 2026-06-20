@@ -1,0 +1,34 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set l1 = page.meta.L1 | default("") %}
+{% set l2 = page.meta.L2 | default("") %}
+{% set l2_desc = page.meta["L2 Description"] | default("") %}
+{% set l3 = page.meta.L3 | default("") %}
+{% set l3_desc = page.meta["L3 Description"] | default("") %}
+
+<div class="rm-card rm-card--vision md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">VISION</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+  <dl class="rm-meta">
+    {% if l1 and l1 != 0 %}<dt>L1</dt><dd>{{ l1 }}</dd>{% endif %}
+    {% if l2 and l2 != 0 %}<dt>L2</dt><dd>{{ l2 }}</dd>{% endif %}
+    {% if l2_desc and l2_desc != 0 %}<dt>L2 Description</dt><dd class="rm-meta__desc">{{ l2_desc }}</dd>{% endif %}
+    {% if l3 and l3 != 0 %}<dt>L3</dt><dd>{{ l3 }}</dd>{% endif %}
+    {% if l3_desc and l3_desc != 0 %}<dt>L3 Description</dt><dd class="rm-meta__desc">{{ l3_desc }}</dd>{% endif %}
+  </dl>
+
+  {% with ids_raw=page.meta["Domain IDs"]|default(""),
+          xref_type="domain",
+          heading="Linked Domains" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="activity", field="Vision IDs", heading="Referenced by Activities" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

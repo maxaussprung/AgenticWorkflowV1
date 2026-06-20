@@ -1,0 +1,82 @@
+parameters:
+  - name: deploymentServiceConnection
+    type: string
+
+  - name: subscriptionId
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: stageName
+    type: string
+
+  - name: azureAdClientSecret
+    type: string
+
+jobs:
+  - deployment: deploy_azure_infrastructure
+    displayName: Deploy Azure Infrastructure
+    condition: eq(variables['apiChanged'], true)
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs?view=azure-devops#descriptions-of-lifecycle-hooks
+        deploy:
+          steps:
+            - checkout: none
+
+            - download: current
+              artifact: bicep-files
+              displayName: Download Bicep Artifacts
+
+            # For Debug reason only
+            # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/powershell-v2
+            - task: PowerShell@2
+              displayName: Display Bicep Artifacts Contents
+              condition: succeeded()
+              inputs:
+                targetType: inline
+                script: |
+                  Get-ChildItem -Path $(Agent.BuildDirectory)/bicep-files -Recurse
+
+            # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-resource-manager-template-deployment-v3
+            - task: AzureResourceManagerTemplateDeployment@3
+              displayName: Deploy Infrastructure
+              continueOnError: false
+              condition: succeeded()
+              inputs:
+                action: Create Or Update Resource Group
+                addSpnToEnvironment: true
+                azureResourceManagerConnection: ${{ parameters.deploymentServiceConnection }}
+                csmFile: $(Agent.BuildDirectory)/bicep-files/main.bicep
+                csmParametersFile: $(Agent.BuildDirectory)/bicep-files/parameters.${{ parameters.stageName }}.bicepparam
+                deploymentMode: Incremental
+                deploymentName: {project-name}
+                deploymentOutputs: ArmOut
+                deploymentScope: Subscription
+                location: $(ResourceGroupLocation)
+                subscriptionId: ${{ parameters.subscriptionId }}
+                templateLocation: Linked artifact
+                overrideParameters: -azureAdClientSecret ${{ parameters.azureAdClientSecret }}
+
+            - bash: |
+                echo "##[debug] Output Parameters:"
+                echo "##[debug] keyVaultUri: $(ArmOut.keyVaultUri.value)"
+                echo "##[debug] keyVaultName: $(ArmOut.keyVaultName.value)"
+                echo "##[debug] managedIdentityClientId: $(ArmOut.managedIdentityClientId.value)"
+                echo "##[debug] appConfigurationEndpoint: $(ArmOut.appConfigurationEndpoint.value)"
+                echo "##[debug] managedIdentityName: $(ArmOut.managedIdentityName.value)"
+                echo "##[debug] sqlServerConnectionString: $(ArmOut.sqlServerConnectionString.value)"
+                echo "##[debug] sqlServerName: $(ArmOut.sqlServerName.value)"
+                echo "##[debug] sqlServerDatabaseName: $(ArmOut.sqlServerDatabaseName.value)"
+                echo "##vso[task.setvariable variable=keyVaultUri;isOutput=true]$(ArmOut.keyVaultUri.value)"
+                echo "##vso[task.setvariable variable=keyVaultName;isOutput=true]$(ArmOut.keyVaultName.value)"
+                echo "##vso[task.setvariable variable=managedIdentityClientId;isOutput=true]$(ArmOut.managedIdentityClientId.value)"
+                echo "##vso[task.setvariable variable=appConfigurationEndpoint;isOutput=true]$(ArmOut.appConfigurationEndpoint.value)"
+                echo "##vso[task.setvariable variable=managedIdentityName;isOutput=true]$(ArmOut.managedIdentityName.value)"
+                echo "##vso[task.setvariable variable=sqlServerConnectionString;isOutput=true]$(ArmOut.sqlServerConnectionString.value)"
+                echo "##vso[task.setvariable variable=sqlServerName;isOutput=true]$(ArmOut.sqlServerName.value)"
+                echo "##vso[task.setvariable variable=sqlServerDatabaseName;isOutput=true]$(ArmOut.sqlServerDatabaseName.value)"
+              displayName: Show Deployment Output Parameters
+              name: infrastructureDeploymentOutputParameters

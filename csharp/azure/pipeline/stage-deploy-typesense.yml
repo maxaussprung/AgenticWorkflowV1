@@ -1,0 +1,60 @@
+parameters:
+  - name: deploymentServiceConnection
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: variableGroup
+    type: string
+
+  - name: stageName
+    type: string
+
+  - name: acrName
+    type: string
+
+  - name: acrServiceConnection
+    type: string
+
+stages:
+  - stage: ${{ parameters.stageName }}
+    displayName: Typesense Deployment in '${{ parameters.stageName }}'
+    dependsOn:
+      - prepare_typesense
+    variables:
+      - group: ${{ parameters.variableGroup }}
+      - template: ../variables/common-variables.yml
+      - template: ../variables/variables-${{ parameters.stageName }}.yml
+    jobs:
+      - template: job-create-federated-credentials.yml
+        parameters:
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          kubernetesCluster: ${{ variables.KubernetesCluster }}
+          kubernetesClusterIssuerUrl: ${{ variables.KubernetesClusterIssuerUrl }}
+          kubernetesClusterResourceGroup: ${{ variables.KubernetesClusterResourceGroup }}
+          kubernetesClusterSubscription: ${{ variables.KubernetesClusterSubscription }}
+          kubernetesNamespace: ${{ variables.KubernetesTenant }}-typesense
+          credentialSeekers:
+            - namespace: ${{ variables.KubernetesTenant }}-typesense
+              serviceAccount: {project-name}-typesense-sa
+          resourceGroup: ${{ variables.ResourceGroupName }}
+          stageName: ${{ parameters.stageName }}
+          subscriptionName: ${{ variables.SubscriptionName }}
+          managedIdentityName: ${{ variables.ManagedIdentityName }}
+
+      - template: job-deploy-typesense-to-kubernetes.yml
+        parameters:
+          artifactName: {project-name}-typesense-chart
+          acrName: ${{ parameters.acrName }}
+          acrServiceConnection: ${{ parameters.acrServiceConnection }}
+          deploymentServiceConnection: ${{ parameters.deploymentServiceConnection }}
+          environment: ${{ parameters.environment }}
+          helmChartName: {project-name}-typesense
+          kubernetesCluster: ${{ variables.KubernetesCluster }}
+          kubernetesClusterResourceGroup: ${{ variables.KubernetesClusterResourceGroup }}
+          kubernetesClusterSubscription: ${{ variables.KubernetesClusterSubscription }}
+          kubernetesNamespace: ${{ variables.KubernetesTenant }}-typesense
+          kubernetesTenant: ${{ variables.KubernetesTenant }}
+          stageName: ${{ parameters.stageName }}

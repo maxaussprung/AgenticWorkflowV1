@@ -1,0 +1,57 @@
+# Repo -> Azure Boards reconciliation.
+#
+# - On a PR into master: run the drift check (read-only). Fails the PR if an
+#   approved requirement (or any product/feature) has no work item or wrong link.
+# - On merge to master: reconcile (create missing work items + repair links).
+#
+# Prerequisite: the build service identity ("<Project> Build Service") needs
+# Work Items: read & write. Alternatively set a PAT in a secret variable AZDO_PAT.
+# See docs/architecture/tracking.md.
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - docs/requirements/**
+      - tools/azure-sync/**
+
+pr:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - docs/requirements/**
+      - tools/azure-sync/**
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  AZDO_ORG_URL: $(System.CollectionUri)
+  AZDO_PROJECT: $(System.TeamProject)
+  # SITE_BASE_URL: set to the published requirements-site URL for work-item back-links.
+
+steps:
+  - checkout: self
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+
+  - script: pip install pyyaml
+    displayName: Install deps
+
+  - script: python tools/azure-sync/sync.py --check
+    displayName: 'Drift check (read-only)'
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  - script: python tools/azure-sync/sync.py --apply
+    displayName: 'Reconcile board (create + link)'
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)

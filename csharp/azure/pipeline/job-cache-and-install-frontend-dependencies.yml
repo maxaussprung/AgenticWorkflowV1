@@ -1,0 +1,42 @@
+parameters:
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: cachePath
+    type: string
+    default: /home/AzDevOps/.local/share/pnpm/store/
+
+  - name: packageManager
+    type: string
+    default: pnpm
+
+steps:
+  - task: Bash@3
+    condition: succeeded()
+    displayName: Generate Dependencies Hash
+    inputs:
+      targetType: inline
+      script: |
+        DEPENDENCIES_HASH=$(sha256sum $PACKAGE_PATH | awk '{ print $1 }')
+        echo "##[debug] Generated Hash: $DEPENDENCIES_HASH"
+        echo "##vso[task.setvariable variable=DependenciesHash]$DEPENDENCIES_HASH"
+    env:
+      PACKAGE_PATH: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}/package.json
+
+  - task: Cache@2
+    condition: succeeded()
+    displayName: Caching Dependencies
+    inputs:
+      key: ${{parameters.packageManager}} | $(Agent.OS) | $(DependenciesHash)
+      path: ${{ parameters.cachePath }}
+
+  - task: CmdLine@2
+    condition: succeeded()
+    displayName: Setup pnpm && Install Dependencies
+    inputs:
+      workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.frontendPath }}
+      script: |
+        corepack enable
+        corepack prepare pnpm@8.9.2 --activate
+        pnpm install --fetch-retry-mintimeout 1000000 --fetch-retry-maxtimeout 6000000

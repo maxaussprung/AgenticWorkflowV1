@@ -1,0 +1,51 @@
+parameters:
+  - name: variableGroup
+    type: string
+
+  - name: previousStageName
+    type: string
+
+  - name: frontendPath
+    type: string
+    default: src/frontend
+
+  - name: URL
+    type: string
+    default: "http://localhost:3000"
+
+  - name: testType
+    type: string
+    default: si
+
+  - name: stageDisplayName
+    type: string
+    default: System Integration Tests
+
+stages:
+  - stage: systemIntegrationTests
+    displayName: ${{parameters.stageDisplayName}}
+    dependsOn:
+      - ${{ parameters.previousStageName }}
+      - initialize
+    condition: |
+      and(
+        succeeded(),
+        or(
+          eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/develop'),
+          eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/main'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/develop'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/main')
+        )
+      )
+    variables:
+      - group: ${{ parameters.variableGroup }}
+    jobs:
+      - job:
+        displayName: Run ${{parameters.stageDisplayName}}
+        steps:
+          - template: job-system-integration.yml
+            parameters:
+              frontendPath: ${{parameters.frontendPath}}
+              URL: ${{parameters.URL}}
+              testType: ${{parameters.testType}}
+              stageDisplayName: ${{parameters.stageDisplayName}}

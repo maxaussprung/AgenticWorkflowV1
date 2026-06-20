@@ -1,0 +1,29 @@
+{# Short Tests & coverage section, rendered on a requirement page between the link
+   lists and the change history. Reads the `test_coverage` global (built in
+   hooks/cross_refs.py). One fact per line; links to the full report. The matching
+   TOC entry is added in the hook's on_page_content (template sections are not in
+   page.toc by themselves). Pure presentation. #}
+{% set req_id = page.meta.id | default("") %}
+{% set cov = test_coverage.get(req_id) if test_coverage is defined else None %}
+{% if cov %}
+<section class="rm-cov" id="tests-coverage">
+  <h2 class="rm-cov__heading">Tests &amp; coverage</h2>
+  {% for layer, data in cov.items() %}
+    {% set acs = data.acceptance_criteria | default([]) %}
+    {% set inscope = acs | rejectattr('out_of_scope') | list %}
+    {% set oos = acs | selectattr('out_of_scope') | list %}
+    {% set ok = inscope | selectattr('covered') | list | length %}
+    <p class="rm-cov__layer">
+      <strong>{{ layer | capitalize }}</strong>
+      {% if data.action_taken %}<span class="tag">{{ data.action_taken }}</span>{% endif %}
+    </p>
+    <ul class="rm-cov__facts">
+      <li>{{ ok }} / {{ inscope | length }} in-scope acceptance criteria covered{% if oos %} <span class="rm-cov__muted">(+{{ oos | length }} owned by other layer)</span>{% endif %}</li>
+      {% if data.mechanical and data.mechanical.line is defined %}<li>Lines: {{ data.mechanical.line }} %</li>{% endif %}
+      {% if data.mechanical and data.mechanical.branch is defined %}<li>Branch: {{ data.mechanical.branch }} %</li>{% endif %}
+      {% if data.gaps %}<li class="rm-cov__report--gap">{{ data.gaps | length }} open gap(s) — see full report</li>{% endif %}
+    </ul>
+  {% endfor %}
+  <p><a class="rm-cov__detaillink" href="{{ base_url }}/test-coverage.html#cov-{{ req_id | lower }}">→ Test details &amp; full report</a></p>
+</section>
+{% endif %}

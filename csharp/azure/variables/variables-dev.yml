@@ -1,0 +1,13 @@
+# ===== ENVIRONMENT-SPECIFIC VARIABLES — replace all {PLACEHOLDER} values =====
+variables:
+  ApiMgmtApiId: {project-name}-api-dev
+  BackendServiceUrl: https://{project-name}-api.dev.{cluster-domain}
+  KubernetesBackendServiceAccount: {project-name}-api-sa
+  KubernetesCluster: {AKS-CLUSTER-DEV}
+  KubernetesClusterIssuerUrl: {OIDC-ISSUER-URL}
+  KubernetesClusterResourceGroup: {AKS-RESOURCE-GROUP}
+  KubernetesClusterSubscription: Shared K8s Dev
+  KubernetesFrontendServiceAccount: {project-name}-app-sa
+  SubscriptionName: {service-connection}-dev
+  SwaggerUrl: https://{project-name}-api.dev.{cluster-domain}/docs/{project-name}-api/swagger.json
+  ManagedIdentityName: {project-name}-managed-identity-dev-{suffix}

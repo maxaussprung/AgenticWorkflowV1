@@ -1,0 +1,222 @@
+parameters:
+  - name: acrName
+    type: string
+
+  - name: acrServiceConnection
+    type: string
+
+  - name: containerRegistryDomain
+    type: string
+    default: azurecr.io
+
+  - name: coverageReportOutputDirectory
+    type: string
+
+  - name: dockerImageName
+    type: string
+
+  - name: dockerImageTag
+    type: string
+
+  - name: helmArtifactsPath
+    type: string
+
+  - name: sonarQubeBackendProjectName
+    type: string
+
+  - name: sonarQubeServiceConnection
+    type: string
+
+  - name: sonarQubeQualityGateAPI
+    type: string
+
+  - name: sonarQubeURL
+    type: string
+
+  - name: platformName
+    type: string
+
+  - name: blackduckProjectName
+    type: string
+
+  - name: leanIXBackendApplicationId
+    type: string
+
+steps:
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/use-dotnet-v2
+  - task: UseDotNet@2
+    condition: succeeded()
+    displayName: Install .NET 8 SDK
+    inputs:
+      includePreviewVersions: false
+      packageType: sdk
+      performMultiLevelLookup: true
+      version: 8.x
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/sonar-qube-prepare-v7?view=azure-pipelines
+  - task: SonarQubePrepare@7
+    condition: succeeded()
+    displayName: SonarQube Prepare
+    retryCountOnTaskFailure: 3
+    inputs:
+      SonarQube: ${{ parameters.sonarQubeServiceConnection }}
+      scannerMode: dotnet
+      projectKey: $(SonarQube.BackendProjectKey)
+      projectName: ${{ replace(replace(eq(length(parameters.sonarQubeBackendProjectName), 0), True,''), False, parameters.sonarQubeBackendProjectName) }}
+      extraproperties: |
+        sonar.projectBaseDir=$(Build.SourcesDirectory)/src/backend
+        sonar.sources=src/
+        sonar.tests=$(Build.SourcesDirectory)/test
+        sonar.cs.vscoveragexml.reportsPaths=${{ parameters.coverageReportOutputDirectory }}/**/coverage.xml
+        sonar.cs.vstest.reportsPaths=$(Agent.TempDirectory)/**/*.trx
+        sonar.exclusions=**/Dockerfile,**/Migrations/**,**/Data/**,**/*.json
+        sonar.cpd.exclusions=**/InitialData.cs
+        sonar.scm.provider=git
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/nuget-command-v2
+  - task: NuGetCommand@2
+    condition: succeeded()
+    displayName: Add Auth to nuget.config
+    inputs:
+      command: custom
+      arguments: sources Update -Name "{client-name}" -Source "https://pkgs.dev.azure.com/{client-name}/_packaging/{client-name}/nuget/v3/index.json" -username "not_used" -password $(System.AccessToken) -ConfigFile $(Build.SourcesDirectory)/nuget.config -StorePasswordInClearText
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+  - task: DotNetCoreCLI@2
+    condition: succeeded()
+    displayName: Build API | $(BuildConfiguration)
+    inputs:
+      arguments: --configuration $(BuildConfiguration)
+      command: build
+      includesource: False
+      includesymbols: True
+      workingDirectory: src/backend/{CLIENT-NAME}.{PROJECT-NAME}.Api
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+  - task: DotNetCoreCLI@2
+    condition: succeeded()
+    displayName: Run Unit Tests
+    inputs:
+      arguments: --collect "Code Coverage" --settings $(Build.SourcesDirectory)/codeCoverage.runsettings
+      command: test
+      projects: $(Build.SourcesDirectory)/test/backend/{CLIENT-NAME}.{PROJECT-NAME}.UnitTests/{CLIENT-NAME}.{PROJECT-NAME}.UnitTests.csproj
+      publishTestResults: true
+      testRunTitle: Backent Unit Tests
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/dotnet-core-cli-v2
+  - task: DotNetCoreCLI@2
+    condition: succeeded()
+    displayName: Run Integration Tests
+    inputs:
+      arguments: --collect "Code Coverage" --settings $(Build.SourcesDirectory)/codeCoverage.runsettings
+      command: test
+      projects: $(Build.SourcesDirectory)/test/backend/{CLIENT-NAME}.{PROJECT-NAME}.IntegrationTests/{CLIENT-NAME}.{PROJECT-NAME}.IntegrationTests.csproj
+      publishTestResults: true
+      testRunTitle: Backend Integration Tests
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/cmd-line-v2
+  - task: CmdLine@2
+    condition: succeeded()
+    displayName: Convert .coverage Files
+    inputs:
+      failOnStderr: True
+      script: |
+        dotnet tool install --global dotnet-coverage
+        export PATH="$PATH:~/.dotnet/tools"
+        mkdir ${{ parameters.coverageReportOutputDirectory }}
+        dotnet-coverage merge -o "${{ parameters.coverageReportOutputDirectory }}/coverage.xml" -f xml $(Agent.TempDirectory)/**/*.coverage
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-code-coverage-results-v2
+  - task: PublishCodeCoverageResults@2
+    condition: succeeded()
+    displayName: Publish Unit Tests Code Coverage
+    inputs:
+      failIfCoverageEmpty: true
+      summaryFileLocation: ${{ parameters.coverageReportOutputDirectory }}/coverage.xml
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/sonar-qube-analyze-v7
+  - task: SonarQubeAnalyze@7
+    condition: succeeded()
+    displayName: SonarQube Analyze
+    retryCountOnTaskFailure: 3
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/sonar-qube-publish-v7
+  - task: SonarQubePublish@7
+    condition: succeeded()
+    displayName: SonarQube Publish
+    retryCountOnTaskFailure: 3
+    inputs:
+      pollingTimeoutSec: 300
+
+  # - task: Bash@3
+  #   condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  #   displayName: Check SonarQube Quality Gate
+  #   inputs:
+  #     targetType: "filePath"
+  #     filePath: $(Build.SourcesDirectory)/azure/scripts/check_quality_gate.sh
+  #   env:
+  #     BEARER_TOKEN: $(SonarQube.BearerToken)
+  #     SOURCE_BRANCH: $(Build.SourceBranch)
+  #     PROJECT_KEY: $(SonarQube.BackendProjectKey)
+  #     SONARQUBE_URL: ${{ parameters.sonarQubeURL }}
+  #     API: ${{ parameters.sonarQubeQualityGateAPI }}
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/azure-cli-v2
+  - task: AzureCLI@2
+    name: acrLogin
+    condition: succeeded()
+    displayName: Login to ACR
+    inputs:
+      azureSubscription: ${{ parameters.acrServiceConnection }}
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        az acr login -n ${{ parameters.acrName }}
+        $loginServer = "${{ parameters.acrName }}.${{ parameters.containerRegistryDomain }}"
+        echo "##[debug] Login server: '$loginServer'"
+        Write-Host "##vso[task.setvariable variable=containerRegistryLoginServer;issecret=true]$loginServer"
+
+  - template: job-build-push-docker-image.yml
+    parameters:
+      acrServiceConnection: ${{ parameters.acrServiceConnection }}
+      dockerFilePath: $(Build.Repository.LocalPath)/src/backend/{CLIENT-NAME}.{PROJECT-NAME}.Api/Dockerfile
+      dockerContextPath: $(Build.Repository.LocalPath)
+      dockerImageName: ${{ parameters.dockerImageName }}
+      dockerImageTag: ${{ parameters.dockerImageTag }}
+
+  # https://dev.azure.com/{client-name}/SharedComponents/_wiki/wikis/cicd-templates/35974/runBlackDuckScan
+  - template: templates/blackduck/runBlackDuckScan.yml@templates
+    parameters:
+      forceBlackDuckScan: true
+      forceFullScanOnFeatureBranch: true
+      leanIxAppid: ${{ parameters.leanIXBackendApplicationId }}
+      path: $(Build.SourcesDirectory)/src/backend
+      platform: ${{ parameters.platformName }}
+      projectName: ${{ parameters.blackduckProjectName }}
+      projectNameSuffix: Backend
+      dockerImage: ${{ parameters.acrName }}.${{ parameters.containerRegistryDomain }}/${{ parameters.dockerImageName }}:latest
+      dockerScan: false
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/copy-files-v2
+  - task: CopyFiles@2
+    displayName: Copy Bicep Files
+    condition: succeeded()
+    inputs:
+      SourceFolder: $(Build.SourcesDirectory)/azure/infrastructure
+      TargetFolder: $(Build.ArtifactStagingDirectory)/bicep-files
+
+  # https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/publish-build-artifacts-v1
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Bicep Artifacts
+    condition: succeeded()
+    inputs:
+      PathtoPublish: $(Build.ArtifactStagingDirectory)/bicep-files
+      artifactName: bicep-files
+
+  - template: job-package-helm.yml
+    parameters:
+      acrName: ${{ parameters.acrName }}
+      registryRepositoryPath: ${{ parameters.helmArtifactsPath }}
+      helmChartName: {project-name}-api
+      helmChartPath: $(Build.SourcesDirectory)/azure/helm/backend
+      helmChartVersion: $(Build.BuildNumber)

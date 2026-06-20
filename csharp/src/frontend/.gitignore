@@ -1,0 +1,18 @@
+node_modules
+.idea/
+.vscode/
+.vs
+.next
+.jest
+next-env.d.ts
+.env.local
+.env.test.local
+tsconfig.tsbuildinfo
+yarn-error.log
+reports
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Playwright
+/blob-report/

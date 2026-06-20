@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{# Inject a multi-size favicon set. Material's `theme.favicon` only renders one
+   icon link; we add the others here so browsers and iOS pick the best size for
+   tabs, bookmarks, and home-screen shortcuts.
+   <!-- Replace with your project logo -->
+   Update the asset paths below to match your project's branding assets. #}
+{% block extrahead %}
+  {{ super() }}
+  <link rel="icon" type="image/png" sizes="16x16"
+        href="{{ base_url }}/assets/favicon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32"
+        href="{{ base_url }}/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="196x196"
+        href="{{ base_url }}/assets/favicon-196.png">
+  <link rel="apple-touch-icon" sizes="152x152"
+        href="{{ base_url }}/assets/apple-touch-152.png">
+{% endblock %}
+
+{% block content %}
+  {% set page_type = page.meta.type | default("") %}
+
+  {% if page_type == "product" %}
+    {% include "partials/product-header.html" %}
+  {% elif page_type == "feature" %}
+    {% include "partials/feature-header.html" %}
+  {% elif page_type == "decision" %}
+    {% include "partials/decision-header.html" %}
+  {% elif page_type == "requirement" %}
+    {% include "partials/requirement-header.html" %}
+  {% elif page_type == "application" %}
+    {% include "partials/application-header.html" %}
+  {% elif page_type == "vision" %}
+    {% include "partials/vision-header.html" %}
+  {% elif page_type == "domain" %}
+    {% include "partials/domain-header.html" %}
+  {% elif page_type == "activity" %}
+    {% include "partials/activity-header.html" %}
+  {% elif page_type == "test_case" %}
+    {% include "partials/test_case-header.html" %}
+  {% elif page_type == "source-document" %}
+    {% include "partials/source_document-header.html" %}
+  {% endif %}
+
+  {% if page_type == "unknown-applications" %}
+    {% include "partials/unknown-applications.html" %}
+  {% endif %}
+
+  {{ super() }}
+
+  {% if page_type == "features-estimation" %}
+    {% include "partials/features-estimation.html" %}
+  {% endif %}
+
+  {% if page_type == "requirement-map" %}
+    {% include "partials/requirement-map.html" %}
+  {% endif %}
+
+  {% if page_type == "business-board" %}
+    {% include "partials/business-board.html" %}
+  {% endif %}
+
+  {% if page_type == "source-traceability" %}
+    {% include "partials/source-traceability.html" %}
+  {% endif %}
+
+  {% if page_type == "test-coverage" %}
+    {% include "partials/coverage-overview.html" %}
+  {% endif %}
+
+  {% if page_type == "product-dashboard" %}
+    {% include "partials/product-dashboard.html" %}
+  {% endif %}
+
+  {% if page.meta.index_of %}
+    {% include "partials/index-of.html" %}
+  {% endif %}
+{% endblock %}

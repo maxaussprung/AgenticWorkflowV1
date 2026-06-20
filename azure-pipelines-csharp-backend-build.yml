@@ -1,0 +1,205 @@
+# Repo-owned build validation for csharp/backend.
+# Keep this outside csharp/ because that subtree is synchronized to the client repository.
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - .sonarcloud.properties
+      - azure-pipelines-csharp-backend-build.yml
+      - csharp/{PROJECT-NAME}.sln
+      - csharp/nuget.config
+      - csharp/codeCoverage.runsettings
+      - csharp/src/backend/**
+      - csharp/test/backend/**
+    exclude:
+      - "**/*.md"
+
+pr:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - .sonarcloud.properties
+      - azure-pipelines-csharp-backend-build.yml
+      - csharp/{PROJECT-NAME}.sln
+      - csharp/nuget.config
+      - csharp/codeCoverage.runsettings
+      - csharp/src/backend/**
+      - csharp/test/backend/**
+    exclude:
+      - "**/*.md"
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: Release
+  csharpRoot: $(Build.SourcesDirectory)/csharp
+  backendCoverageReport: $(Agent.TempDirectory)/backend-coverage/coverage.xml
+  # SonarCloud uses token auth here because this repo cannot create Azure service connections.
+  # Required pipeline variables: SONAR_TOKEN (secret), SONAR_CLOUD_ORGANIZATION,
+  # SONAR_CLOUD_BACKEND_PROJECT_KEY. Optional: SONAR_CLOUD_BACKEND_PROJECT_NAME.
+  # NuGet feed: NUGET_{PROJECT}_USERNAME, NUGET_{PROJECT}_CLEAR_TEXT_PASSWORD
+  # Replace {PROJECT} with your project identifier.
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: Install .NET 8 SDK
+    inputs:
+      includePreviewVersions: false
+      packageType: sdk
+      performMultiLevelLookup: true
+      version: 8.x
+
+  - task: UseDotNet@2
+    displayName: Install .NET 9 SDK
+    inputs:
+      includePreviewVersions: false
+      packageType: sdk
+      performMultiLevelLookup: true
+      version: 9.x
+
+  - task: NuGetAuthenticate@1
+    displayName: Install NuGet credential provider
+
+  - task: Bash@3
+    displayName: Start SonarCloud backend analysis
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+        if [ -z "${SONAR_TOKEN:-}" ] || [[ "$SONAR_TOKEN" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]Set SONAR_TOKEN as a secret pipeline variable before running SonarCloud analysis."
+          exit 1
+        fi
+        if [ -z "${SONAR_CLOUD_ORGANIZATION:-}" ] || [[ "$SONAR_CLOUD_ORGANIZATION" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]Set SONAR_CLOUD_ORGANIZATION as a pipeline variable before running SonarCloud analysis."
+          exit 1
+        fi
+        if [ -z "${SONAR_CLOUD_BACKEND_PROJECT_KEY:-}" ] || [[ "$SONAR_CLOUD_BACKEND_PROJECT_KEY" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]Set SONAR_CLOUD_BACKEND_PROJECT_KEY as a pipeline variable before running SonarCloud analysis."
+          exit 1
+        fi
+        if [ -z "${SONAR_CLOUD_BACKEND_PROJECT_NAME:-}" ] || [[ "$SONAR_CLOUD_BACKEND_PROJECT_NAME" == \$\(* ]]; then
+          SONAR_CLOUD_BACKEND_PROJECT_NAME="$SONAR_CLOUD_BACKEND_PROJECT_KEY"
+        fi
+
+        dotnet tool update --global dotnet-sonarscanner || dotnet tool install --global dotnet-sonarscanner
+        dotnet tool update --global dotnet-coverage || dotnet tool install --global dotnet-coverage
+        export PATH="$PATH:$HOME/.dotnet/tools"
+        # Replace the paths below with your project's actual coverage exclusion patterns.
+        SONAR_COVERAGE_EXCLUSIONS="src/backend/{YourProject}.Contracts/**/*Response.cs,src/backend/{YourProject}.Contracts/**/Responses/**/*.cs"
+
+        dotnet sonarscanner begin \
+          /k:"$SONAR_CLOUD_BACKEND_PROJECT_KEY" \
+          /o:"$SONAR_CLOUD_ORGANIZATION" \
+          /n:"$SONAR_CLOUD_BACKEND_PROJECT_NAME" \
+          /d:sonar.token="$SONAR_TOKEN" \
+          /d:sonar.host.url="https://sonarcloud.io" \
+          /d:sonar.projectBaseDir="$(Build.SourcesDirectory)/csharp" \
+          /d:sonar.sourceEncoding="UTF-8" \
+          /d:sonar.scanner.scanAll=false \
+          /d:sonar.inclusions="src/backend/**/*" \
+          /d:sonar.exclusions="src/frontend/**,src/**/bin/**,src/**/obj/**,src/backend/{YourProject}.Infrastructure/Migrations/**,src/backend/{YourProject}.Infrastructure/Data/**,**/Dockerfile,**/Dockerfile.*,**/*.yml,**/*.yaml,**/*.json" \
+          /d:sonar.coverage.exclusions="$SONAR_COVERAGE_EXCLUSIONS" \
+          /d:sonar.cs.vscoveragexml.reportsPaths="$(backendCoverageReport)"
+    env:
+      SONAR_TOKEN: $(SONAR_TOKEN)
+      SONAR_CLOUD_ORGANIZATION: $(SONAR_CLOUD_ORGANIZATION)
+      SONAR_CLOUD_BACKEND_PROJECT_KEY: $(SONAR_CLOUD_BACKEND_PROJECT_KEY)
+      SONAR_CLOUD_BACKEND_PROJECT_NAME: $(SONAR_CLOUD_BACKEND_PROJECT_NAME)
+
+  - task: Bash@3
+    displayName: Restore backend solution
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+        # Replace NUGET_{PROJECT}_USERNAME / NUGET_{PROJECT}_CLEAR_TEXT_PASSWORD with your project's variable names.
+        if [ -z "${NUGET_PROJECT_USERNAME:-}" ] || [ -z "${NUGET_PROJECT_CLEAR_TEXT_PASSWORD:-}" ]; then
+          echo "##vso[task.logissue type=error]Set NUGET_{PROJECT}_USERNAME and NUGET_{PROJECT}_CLEAR_TEXT_PASSWORD pipeline variables before running this pipeline."
+          exit 1
+        fi
+        if [[ "$NUGET_PROJECT_USERNAME" == \$\(* ]] || [[ "$NUGET_PROJECT_CLEAR_TEXT_PASSWORD" == \$\(* ]]; then
+          echo "##vso[task.logissue type=error]NuGet credentials were not expanded. Check that both pipeline variables exist and that any variable group is authorized for this pipeline."
+          exit 1
+        fi
+        NUGET_CONFIG_PATH="$(Agent.TempDirectory)/nuget-project.config"
+        cat > "$NUGET_CONFIG_PATH" <<EOF
+        <?xml version="1.0" encoding="utf-8"?>
+        <configuration>
+          <packageSources>
+            <clear />
+            <add key="nuget" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+            <add key="{project}" value="https://pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/nuget/v3/index.json" />
+          </packageSources>
+        </configuration>
+        EOF
+        export VSS_NUGET_EXTERNAL_FEED_ENDPOINTS="{\"endpointCredentials\":[{\"endpoint\":\"https://pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/nuget/v3/index.json\",\"username\":\"$NUGET_PROJECT_USERNAME\",\"password\":\"$NUGET_PROJECT_CLEAR_TEXT_PASSWORD\"}]}"
+        dotnet nuget list source --configfile "$NUGET_CONFIG_PATH"
+        curl --fail --silent --show-error --user "$NUGET_PROJECT_USERNAME:$NUGET_PROJECT_CLEAR_TEXT_PASSWORD" "https://pkgs.dev.azure.com/{AZURE-DEVOPS-ORG}/_packaging/{project}/nuget/v3/index.json" > /dev/null
+        dotnet restore "$(csharpRoot)/{PROJECT-NAME}.sln" --configfile "$NUGET_CONFIG_PATH" --verbosity minimal
+    env:
+      NUGET_PROJECT_USERNAME: $(NUGET_PROJECT_USERNAME)
+      NUGET_PROJECT_CLEAR_TEXT_PASSWORD: $(NUGET_PROJECT_CLEAR_TEXT_PASSWORD)
+
+  - task: DotNetCoreCLI@2
+    displayName: Build backend solution | $(buildConfiguration)
+    inputs:
+      command: build
+      projects: $(csharpRoot)/{PROJECT-NAME}.sln
+      arguments: --configuration $(buildConfiguration) --no-restore
+
+  # Replace the project paths below with your actual test project paths.
+  - task: DotNetCoreCLI@2
+    displayName: Run backend unit tests
+    inputs:
+      command: test
+      projects: $(csharpRoot)/test/backend/**/*.UnitTests/*.csproj
+      arguments: --configuration $(buildConfiguration) --no-build --collect "Code Coverage" --settings $(csharpRoot)/codeCoverage.runsettings
+      publishTestResults: true
+      testRunTitle: Backend Unit Tests
+
+  - task: DotNetCoreCLI@2
+    displayName: Run backend integration tests
+    inputs:
+      command: test
+      projects: $(csharpRoot)/test/backend/**/*.IntegrationTests/*.csproj
+      arguments: --configuration $(buildConfiguration) --no-build --collect "Code Coverage" --settings $(csharpRoot)/codeCoverage.runsettings
+      publishTestResults: true
+      testRunTitle: Backend Integration Tests
+
+  - task: Bash@3
+    displayName: Convert backend coverage
+    condition: succeeded()
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+        export PATH="$PATH:$HOME/.dotnet/tools"
+        mkdir -p "$(dirname "$(backendCoverageReport)")"
+        mapfile -t coverage_files < <(find "$(Agent.TempDirectory)" -type f -name "*.coverage")
+        if [ "${#coverage_files[@]}" -eq 0 ]; then
+          echo "##vso[task.logissue type=error]No .coverage files were generated by backend tests."
+          exit 1
+        fi
+        dotnet-coverage merge -o "$(backendCoverageReport)" -f xml "${coverage_files[@]}"
+
+  - task: Bash@3
+    displayName: Finish SonarCloud backend analysis
+    condition: succeeded()
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+        export PATH="$PATH:$HOME/.dotnet/tools"
+        dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+    env:
+      SONAR_TOKEN: $(SONAR_TOKEN)

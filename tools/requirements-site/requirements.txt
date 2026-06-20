@@ -1,0 +1,6 @@
+mkdocs>=1.6
+mkdocs-material>=9.5
+pymdown-extensions>=10.7
+# Versioned-docs deployment: publishes each branch as a selectable version and
+# powers the branch/version dropdown via the Material `extra.version` provider.
+mike>=2.1

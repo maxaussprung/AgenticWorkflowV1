@@ -1,0 +1,147 @@
+site_name: "{PROJECT-NAME} Requirements"  # Replace with your project name
+site_description: Requirements management framework for {PROJECT-NAME}  # Replace with your project description
+site_author: "{PROJECT-TEAM}"  # Replace with your team / organisation name
+
+# Public root of the deployed site. The version selector resolves `versions.json`
+# relative to this. Update to the real Azure host (Static Web App / Storage
+# static-website endpoint) before the first deploy.
+site_url: https://example.invalid/  # Replace with your project's deployed site URL
+
+docs_dir: ../../docs/requirements
+site_dir: ../../reports/evaluations/requirements-site
+
+# The slice ledger lives outside docs_dir, but the cross_refs hook reads it for the
+# single source of truth on implementation status + owner (dashboard + requirement
+# pages). Watch it so `mkdocs serve` rebuilds when the ledger changes.
+watch:
+  - ../../openspec/track.md
+
+# Agent-instruction files live alongside the docs but are guidance for AI tools,
+# not site content. Exclude them so they are not rendered as pages (their cross-repo
+# links would otherwise fail strict link checking).
+exclude_docs: |
+  AGENTS.md
+  CLAUDE.md
+  **/AGENTS.md
+  **/CLAUDE.md
+  # Folder READMEs are author guidance for the repo, not site content.
+  README.md
+  **/README.md
+  source-import/**
+  # …but still serve the official source PDFs so source-document `file:` download
+  # links resolve (source document IDs point at files in source-import/).
+  !source-import/*.pdf
+
+use_directory_urls: false
+
+theme:
+  name: material
+  custom_dir: overrides
+  # Replace with your project's branding
+  logo: assets/logo.png       # Replace with your project logo
+  favicon: assets/favicon.png # Replace with your project favicon
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - stylesheets/tokens.css
+  - stylesheets/nav.css
+  - stylesheets/extra.css
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js
+  - javascripts/mermaid-init.js
+  - javascripts/nav-accordion.js
+  - javascripts/product-dashboard.js
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+hooks:
+  - hooks/cross_refs.py
+
+# Section index pages are listed as bare strings (no label). The cross_refs hook
+# detects any such page whose front matter sets `index_of: <type>` + `nav_children: true`
+# and appends one sidebar entry per page of that type — so example/real pages show up
+# automatically. Use `Label: path.md` only for standalone pages that should NOT expand.
+nav:
+  - Home: index.md
+  - Requirements:
+      - Products:
+          - products/index.md
+      - Epics:
+          - epics/index.md
+      - Features:
+          - features/index.md
+      - Requirements:
+          - requirements/index.md
+      - Technical View: requirement-map.md
+      - Product dashboard: product-dashboard.md
+  - Analyses:
+      # Product Analyses — add one entry per product analysis once you create them, e.g.:
+      # - "{Product Name}": product-analyses/PRODUCT-001-{NAME}.md
+      - Legacy Landscape: legacy-coverage-landscape.md    # Replace/remove if not applicable
+      - APIs and Topics: external-api-research.md
+      - Test Coverage: test-coverage.md
+  - Governance:
+      - Decisions:
+          - decisions/index.md
+      - Test Cases:
+          - test_cases/index.md
+      - Estimation: estimation/index.md
+  - Sources:
+      - Source Documents:
+          - sources/index.md
+      - Source Traceability: source-traceability.md
+      # Add project-specific source documents under sources/ — they expand automatically.
+  - Reference:
+      - Applications:
+          - applications/index.md
+      - Domains:
+          - domains/index.md
+      - Page Types: page-types/index.md

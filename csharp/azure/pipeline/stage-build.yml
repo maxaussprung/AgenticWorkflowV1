@@ -1,0 +1,109 @@
+parameters:
+  - name: acrName
+    type: string
+
+  - name: acrServiceConnection
+    type: string
+
+  - name: coverageReportOutputDirectory
+    type: string
+
+  - name: dockerBackendImageName
+    type: string
+
+  - name: dockerImageTag
+    type: string
+
+  - name: helmArtifactsPath
+    type: string
+
+  - name: sonarQubeBackendProjectName
+    type: string
+
+  - name: sonarQubeFrontendProjectName
+    type: string
+
+  - name: sonarQubeServiceConnection
+    type: string
+
+  - name: sonarQubeQualityGateAPI
+    type: string
+
+  - name: sonarQubeURL
+    type: string
+
+  - name: variableGroup
+    type: string
+
+  - name: platformName
+    type: string
+
+  - name: blackduckProjectName
+    type: string
+
+  - name: leanIXBackendApplicationId
+    type: string
+
+  - name: leanIXFrontendApplicationId
+    type: string
+
+  - name: cachePath
+    type: string
+
+  - name: frontendPath
+    type: string
+
+  - name: testType
+    type: string
+
+stages:
+  - stage: build
+    displayName: Build API and App
+    dependsOn: initialize
+    variables:
+      - group: ${{ parameters.variableGroup }}
+      - name: uiChanged
+        value: $[ stageDependencies.initialize.check_for_path_changes.outputs['detectChanges.uiChanged'] ]
+      - name: apiChanged
+        value: $[ stageDependencies.initialize.check_for_path_changes.outputs['detectChanges.apiChanged'] ]
+    jobs:
+      - job:
+        displayName: Build API
+        condition: eq(variables['apiChanged'], true)
+        steps:
+          - template: job-build-api.yml
+            parameters:
+              acrName: ${{ parameters.acrName }}
+              acrServiceConnection: ${{ parameters.acrServiceConnection }}
+              blackduckProjectName: ${{ parameters.blackduckProjectName }}
+              coverageReportOutputDirectory: ${{ parameters.coverageReportOutputDirectory }}
+              dockerImageName: ${{ parameters.dockerBackendImageName }}
+              dockerImageTag: ${{ parameters.dockerImageTag }}
+              helmArtifactsPath: ${{ parameters.helmArtifactsPath }}
+              leanIXBackendApplicationId: ${{ parameters.leanIXBackendApplicationId }}
+              platformName: ${{ parameters.platformName }}
+              sonarQubeBackendProjectName: ${{ parameters.sonarQubeBackendProjectName }}
+              sonarQubeServiceConnection: ${{ parameters.sonarQubeServiceConnection }}
+              sonarQubeQualityGateAPI: ${{ parameters.sonarQubeQualityGateAPI }}
+              sonarQubeURL: ${{ parameters.sonarQubeURL }}
+
+      - job: debug
+        displayName: Build App
+        condition: eq(variables['uiChanged'], true)
+        steps:
+          - template: job-build-frontend.yml
+            parameters:
+              acrName: ${{ parameters.acrName }}
+              acrServiceConnection: ${{ parameters.acrServiceConnection }}
+              blackduckProjectName: ${{ parameters.blackduckProjectName }}
+              coverageReportOutputDirectory: ${{ parameters.coverageReportOutputDirectory }}
+              helmArtifactsPath: ${{ parameters.helmArtifactsPath }}
+              leanIXFrontendApplicationId: ${{ parameters.leanIXFrontendApplicationId }}
+              platformName: ${{ parameters.platformName }}
+              sonarQubeFrontendProjectName: ${{ parameters.sonarQubeFrontendProjectName }}
+              sonarQubeQualityGateAPI: ${{ parameters.sonarQubeQualityGateAPI }}
+              sonarQubeServiceConnection: ${{ parameters.sonarQubeServiceConnection }}
+              sonarQubeURL: ${{ parameters.sonarQubeURL }}
+              frontendPath: ${{ parameters.frontendPath }}
+              cachePath: ${{ parameters.cachePath }}
+              testType: ${{ parameters.testType }}

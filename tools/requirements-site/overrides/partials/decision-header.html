@@ -1,0 +1,76 @@
+{% set id = page.meta.id | default("") %}
+{% set title = page.meta.title | default("") %}
+{% set status = page.meta.status | default("") %}
+{% set date = page.meta.date | default("") %}
+{% set supersedes = page.meta.supersedes | default("") %}
+{% set superseded_by = page.meta.superseded_by | default("") %}
+{% set source = page.meta.source | default("") %}
+{% set tags = page.meta.tags | default([]) %}
+
+<div class="rm-card rm-card--decision md-typeset">
+  <div class="rm-card__head">
+    <span class="rm-kind">DECISION</span>
+    <span class="rm-id">{{ id }}</span>
+    <h1 class="rm-title">{{ title }}</h1>
+  </div>
+
+  {% if status or date or source or tags %}
+  <dl class="rm-meta">
+    {% if status %}<dt>Status</dt><dd><span class="tag tag--decision-status tag--decision-status-{{ status }}">{{ status }}</span></dd>{% endif %}
+    {% if date %}<dt>Decided</dt><dd>{{ date }}</dd>{% endif %}
+    {% if tags %}
+      <dt>Tags</dt>
+      <dd>
+        {% set _tag_items = [tags] if tags is string else tags %}
+        {% for t in _tag_items %}<span class="tag tag--reqtag">{{ t }}</span>{% endfor %}
+      </dd>
+    {% endif %}
+    {% if source %}
+      <dt>Source</dt>
+      <dd>
+        {% if source is string %}
+          {{ source }}
+        {% else %}
+          {% set _src_items = [source] if source is mapping else source %}
+          <ul class="rm-source-list">
+          {% for s in _src_items %}
+            <li>
+              {% if s is mapping %}
+                {% set _doc = (xref.get('source-document', {})).get(s.document) %}
+                {% if _doc %}<a href="{{ base_url }}/{{ _doc.url }}">{{ s.document }}</a>{% else %}{{ s.document }}{% endif %}
+                {% if s.section %} — {{ s.section }}{% endif %}
+                {% if s.note %} <em>({{ s.note }})</em>{% endif %}
+              {% else %}
+                {{ s }}
+              {% endif %}
+            </li>
+          {% endfor %}
+          </ul>
+        {% endif %}
+      </dd>
+    {% endif %}
+  </dl>
+  {% endif %}
+
+  {% with ids_raw=supersedes, xref_type="decision", heading="Supersedes" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with ids_raw=superseded_by, xref_type="decision", heading="Superseded by" %}
+    {% include "partials/linked-list.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="product", field="decisions", heading="Governed Products" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="feature", field="decisions", heading="Governed Features" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% with target_id=id, xref_type="requirement", field="decisions", heading="Governed Requirements" %}
+    {% include "partials/back-links.html" %}
+  {% endwith %}
+
+  {% include "partials/change-history.html" %}
+</div>

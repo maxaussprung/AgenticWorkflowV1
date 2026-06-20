@@ -1,0 +1,186 @@
+# ===== CONFIGURE FOR YOUR PROJECT =====
+# Before using this pipeline, update the variable files in azure/variables/
+# and configure the following:
+# - BUILD-AGENT-POOL: your Azure DevOps agent pool name
+# - Service connections in your Azure DevOps project
+# - Variable groups (referenced as {PROJECT-NAME}.Build, {PROJECT-NAME}.Dev, etc.)
+# ======================================
+
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/process/stages
+
+trigger:
+  branches:
+    include:
+      - develop
+      - main
+      - feature/*
+      - test/*
+
+  paths:
+    exclude:
+      - /**/*.md
+      - /**/*.docx
+      - /**/*.xlsx
+      - /src/backend/{ClientName}.{ProjectName}.ConsumersWorker/*
+      - /test/backend/{ClientName}.{ProjectName}.ConsumersWorker.UnitTests/*
+      - /test/backend/{ClientName}.{ProjectName}.ConsumersWorker.IntegrationTests/*
+      - /azure-pipelines-kafka-consumers.yml
+
+pool:
+  name: {BUILD-AGENT-POOL}
+
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: SharedComponents/cicd-templates
+      ref: refs/tags/v4.0.0
+
+variables:
+  - template: ./azure/variables/common-variables.yml
+  - template: ./azure/variables/external-software-variables.yml
+  - template: ./azure/variables/environment-test-variables.yml
+
+stages:
+  - stage: initialize
+    displayName: Initialize
+    jobs:
+      - job: check_for_path_changes
+        displayName: Initialize
+        steps:
+          - checkout: self
+            fetchDepth: 0 # Ensure full history is available for diff
+
+          - bash: |
+              # Compare the latest commit to its previous commit
+              # Adjust the reference for your branch or commit range as needed
+              CHANGESBACK=$(git diff --name-only HEAD HEAD~1 | grep -wE '.*\/?backend|azure|test/backend')
+
+              if [ -n "$CHANGESBACK" ]; then
+                echo "Backend Changes detected in specific path."
+                echo "##vso[task.setvariable variable=apiChanged;isOutput=true]true"
+              else
+                echo "No backend changes detected in specific path."
+                echo "##vso[task.setvariable variable=apiChanged;isOutput=true]false"
+              fi
+
+              CHANGESFRONT=$(git diff --name-only HEAD HEAD~1 | grep -wE '.*\/?frontend|azure')
+
+              if [ -n "$CHANGESFRONT" ]; then
+                echo "Frontend Changes detected in specific path."
+                echo "##vso[task.setvariable variable=uiChanged;isOutput=true]true"
+              else
+                echo "No frontend changes detected in specific path."
+                echo "##vso[task.setvariable variable=uiChanged;isOutput=true]false"
+              fi
+            name: detectChanges
+            displayName: Detect Code Changes
+
+  - template: ./azure/pipeline/stage-build.yml
+    parameters:
+      acrName: ${{ variables.AcrName }}
+      acrServiceConnection: ${{ variables.AcrServiceConnection }}
+      blackduckProjectName: ${{ variables.BlackduckProjectName }}
+      coverageReportOutputDirectory: $(Agent.TempDirectory)/test-coverage
+      dockerBackendImageName: $(KubernetesTenant)/{project-name}-api
+      dockerImageTag: $(Build.SourceVersion)
+      helmArtifactsPath: $(KubernetesTenant)/helm
+      leanIXBackendApplicationId: ${{ variables.LeanIXBackendApplicationId }}
+      leanIXFrontendApplicationId: ${{ variables.LeanIXFrontendApplicationId }}
+      platformName: ${{ variables.PlatformName }}
+      sonarQubeBackendProjectName: ${{ variables.SonarQubeBackendProjectName }}
+      sonarQubeFrontendProjectName: ${{ variables.SonarQubeFrontendProjectName }}
+      sonarQubeQualityGateAPI: ${{ variables.SonarQubeQualityGateAPI }}
+      sonarQubeServiceConnection: ${{ variables.SonarQubeServiceConnection }}
+      sonarQubeURL: ${{ variables.SonarQubeURL }}
+      variableGroup: {PROJECT-NAME}.Build
+      frontendPath: ${{ variables.frontendPath }}
+      cachePath: ${{ variables.cachePath }}
+      testType: ${{ variables.integration }}
+
+  - template: ./azure/pipeline/stage-system-integration-tests.yml
+    parameters:
+      stageDisplayName: System Integration Tests
+      variableGroup: {PROJECT-NAME}.Build
+      previousStageName: build
+      frontendPath: ${{ variables.frontendPath }}
+      URL: ${{ variables.localhost }}
+      testType: ${{ variables.systemIntegration }}
+
+  - template: ./azure/pipeline/stage-deploy.yml
+    parameters:
+      acrName: ${{ variables.AcrName }}
+      acrServiceConnection: ${{ variables.AcrServiceConnection }}
+      deploymentServiceConnection: {service-connection}-dev
+      dockerImageTag: $(Build.SourceVersion)
+      dockerFrontendImageName: $(KubernetesTenant)/{project-name}-app/dev
+      environment: {PROJECT-NAME}-Dev
+      previousStageName: systemIntegrationTests
+      stageName: dev
+      subscriptionId: {SUBSCRIPTION-ID-DEV}
+      variableGroup: {PROJECT-NAME}.Dev
+
+  - template: ./azure/pipeline/stage-e2e-tests.yml
+    parameters:
+      stageName: devE2ETests
+      environment: dev
+      stageDisplayName: DEV E2E Tests
+      frontendPath: ${{ variables.frontendPath }}
+      cachePath: ${{ variables.cachePath }}
+      testType: ${{ variables.e2e }}
+      URL: ${{ variables.dev }}
+      previousStageName: dev
+      deploymentServiceConnection: {service-connection}-dev
+      variableGroup: {PROJECT-NAME}.Dev.E2E
+
+  - template: ./azure/pipeline/stage-deploy.yml
+    parameters:
+      acrName: ${{ variables.AcrName }}
+      acrServiceConnection: ${{ variables.AcrServiceConnection }}
+      deploymentServiceConnection: {service-connection}-test
+      dockerImageTag: $(Build.SourceVersion)
+      dockerFrontendImageName: $(KubernetesTenant)/{project-name}-app/test
+      environment: {PROJECT-NAME}-Test
+      previousStageName: devE2ETests
+      stageName: test
+      subscriptionId: {SUBSCRIPTION-ID-TEST}
+      variableGroup: {PROJECT-NAME}.Test
+
+  - template: ./azure/pipeline/stage-deploy.yml
+    parameters:
+      acrName: ${{ variables.AcrName }}
+      acrServiceConnection: ${{ variables.AcrServiceConnection }}
+      deploymentServiceConnection: {service-connection}-abn
+      dockerImageTag: $(Build.SourceVersion)
+      dockerFrontendImageName: $(KubernetesTenant)/{project-name}-app/abn
+      environment: {PROJECT-NAME}-Abn
+      previousStageName: test
+      stageName: abn
+      subscriptionId: {SUBSCRIPTION-ID-ABN}
+      variableGroup: {PROJECT-NAME}.Abn
+
+  - template: ./azure/pipeline/stage-e2e-tests.yml
+    parameters:
+      stageName: abnE2ETests
+      environment: abn
+      stageDisplayName: ABN E2E Tests
+      frontendPath: ${{ variables.frontendPath }}
+      cachePath: ${{ variables.cachePath }}
+      testType: ${{ variables.e2e }}
+      URL: ${{ variables.abn }}
+      previousStageName: abn
+      deploymentServiceConnection: {service-connection}-abn
+      variableGroup: {PROJECT-NAME}.Abn.E2E
+
+  - template: ./azure/pipeline/stage-deploy.yml
+    parameters:
+      acrName: ${{ variables.AcrName }}
+      acrServiceConnection: ${{ variables.AcrServiceConnection }}
+      deploymentServiceConnection: {service-connection}-prod
+      dockerImageTag: $(Build.SourceVersion)
+      dockerFrontendImageName: $(KubernetesTenant)/{project-name}-app/prod
+      environment: {PROJECT-NAME}-Prod
+      previousStageName: abnE2ETests
+      stageName: prod
+      subscriptionId: {SUBSCRIPTION-ID-PROD}
+      variableGroup: {PROJECT-NAME}.Prod

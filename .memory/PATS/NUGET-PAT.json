@@ -1,6 +1,6 @@
 {
   "user": "jonas.hauser@accenture.com",
-  "pat": "8LRZbgGCiedw2qqBqPmUfyoISNb9YH1F6R684SEdT8DCoWeoOW8vJQQJ99CFACAAAAApqRMOAAASAZDOLFrC",
+  "pat": "***",
   "scope": "NuGet feed auth for dotnet build/restore",
   "note": "TEMP session PAT. Given to spawned build agents. Load into a var, NEVER print/echo/Read-dump it."
 }

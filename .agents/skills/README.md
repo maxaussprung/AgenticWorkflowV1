@@ -26,6 +26,11 @@ Add a new skill as `.agents/skills/<name>/SKILL.md`; all three assistants pick i
 |-------|-------------|
 | `setup-repo-structure` | **First-time repo setup.** Interactive questions → bulk placeholder replacement across the whole repo. Run once after cloning. |
 
+### Memory
+| Skill | Description |
+|-------|-------------|
+| `build-with-memory` | Execute any task with the `.memory/` discipline: read the memory first, reuse its tools, contribute every learning back |
+
 ### OpenSpec workflow
 | Skill | Description |
 |-------|-------------|

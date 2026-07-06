@@ -1,6 +1,0 @@
-{
-  "user": "jonas.hauser@accenture.com",
-  "pat": "***",
-  "scope": "Azure DevOps REST (work items, PRs, attachments, comments)",
-  "note": "TEMP session PAT. Master agent only. Load into a var, NEVER print/echo/Read-dump it."
-}
